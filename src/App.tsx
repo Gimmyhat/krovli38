@@ -7,6 +7,7 @@ import Services from './components/sections/Services';
 import Gallery from './components/sections/Gallery';
 import Benefits from './components/sections/Benefits';
 import WorkTypes from './components/sections/WorkTypes';
+import ContactForm from './components/sections/ContactForm';
 import { Phone, Mail, Clock } from 'lucide-react';
 import { CONTACT_INFO } from './constants/navigation';
 
@@ -45,26 +46,7 @@ function App() {
                 </div>
               </div>
             </div>
-            <form className="space-y-4">
-              <input
-                type="text"
-                placeholder="Ваше имя"
-                className="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-700"
-              />
-              <input
-                type="tel"
-                placeholder="Телефон"
-                className="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-700"
-              />
-              <textarea
-                placeholder="Сообщение"
-                rows={4}
-                className="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-700"
-              ></textarea>
-              <button className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
-                Отправить заявку
-              </button>
-            </form>
+            <ContactForm />
           </div>
         </div>
       </section>
