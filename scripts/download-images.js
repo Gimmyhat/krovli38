@@ -16,7 +16,7 @@ const images = {
   ],
   services: [
     {
-      url: 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?auto=format&fit=crop&q=80&w=800',
+      url: 'https://images.unsplash.com/photo-1461695008884-244cb4543d74?auto=format&fit=crop&q=80&w=800',
       filename: 'service-1.jpg'
     },
     {
