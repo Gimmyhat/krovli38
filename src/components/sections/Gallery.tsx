@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Camera } from 'lucide-react';
 import Image from '../ui/Image';
 import { GalleryItem } from '../../types/common';
@@ -61,6 +61,15 @@ const galleryItems: GalleryItem[] = [
 ];
 
 const Gallery: React.FC = () => {
+  useEffect(() => {
+    galleryItems.forEach(item => {
+      const img = new window.Image();
+      img.src = item.image;
+      img.onload = () => console.log(`Image loaded successfully: ${item.image}`);
+      img.onerror = () => console.error(`Failed to load image: ${item.image}`);
+    });
+  }, []);
+
   return (
     <section id="gallery" className="py-20 bg-gray-50">
       <div className="container mx-auto px-6">
@@ -70,12 +79,12 @@ const Gallery: React.FC = () => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {galleryItems.map((item) => (
-            <div key={item.id} className="relative group overflow-hidden rounded-lg shadow-lg">
+            <div key={item.id} className="relative group overflow-hidden rounded-lg shadow-lg h-[300px]">
               <Image
                 src={item.image}
                 alt={item.title}
-                className="w-full h-64"
-                aspectRatio={1.5}
+                className="w-full h-full"
+                objectFit="cover"
                 priority={parseInt(item.id) <= 3}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-6">
