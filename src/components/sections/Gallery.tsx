@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useState } from 'react';
 import { Camera } from 'lucide-react';
 import Image from '../ui/Image';
+import ImageViewer from '../ui/ImageViewer';
 import { GalleryItem } from '../../types/common';
 
 const galleryItems: GalleryItem[] = [
@@ -61,14 +62,7 @@ const galleryItems: GalleryItem[] = [
 ];
 
 const Gallery: React.FC = () => {
-  useEffect(() => {
-    galleryItems.forEach(item => {
-      const img = new window.Image();
-      img.src = item.image;
-      img.onload = () => console.log(`Image loaded successfully: ${item.image}`);
-      img.onerror = () => console.error(`Failed to load image: ${item.image}`);
-    });
-  }, []);
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
 
   return (
     <section id="gallery" className="py-20 bg-gray-50">
@@ -78,8 +72,21 @@ const Gallery: React.FC = () => {
           <h2 className="text-3xl font-bold">Наши работы</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {galleryItems.map((item) => (
-            <div key={item.id} className="relative group overflow-hidden rounded-lg shadow-lg h-[300px]">
+          {galleryItems.map((item, index) => (
+            <div
+              key={item.id}
+              className="relative group overflow-hidden rounded-lg shadow-lg h-[300px] cursor-pointer"
+              onClick={() => setSelectedIndex(index)}
+              role="button"
+              tabIndex={0}
+              aria-label={`Открыть ${item.title}`}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setSelectedIndex(index);
+                }
+              }}
+            >
               <Image
                 src={item.image}
                 alt={item.title}
@@ -87,16 +94,18 @@ const Gallery: React.FC = () => {
                 objectFit="cover"
                 priority={parseInt(item.id) <= 3}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-6">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent 
+                flex flex-col justify-end p-6 opacity-100 md:opacity-0 md:group-hover:opacity-100 
+                transition-opacity duration-300">
                 <h3 className="text-white font-semibold mb-2">{item.title}</h3>
                 {item.description && (
                   <p className="text-gray-200 text-sm">{item.description}</p>
                 )}
                 {item.tags && (
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {item.tags.map((tag, index) => (
+                    {item.tags.map((tag, tagIndex) => (
                       <span
-                        key={index}
+                        key={tagIndex}
                         className="text-xs bg-blue-600/80 text-white px-2 py-1 rounded"
                       >
                         {tag}
@@ -109,6 +118,14 @@ const Gallery: React.FC = () => {
           ))}
         </div>
       </div>
+
+      <ImageViewer
+        isOpen={selectedIndex !== -1}
+        onClose={() => setSelectedIndex(-1)}
+        items={galleryItems}
+        currentIndex={selectedIndex}
+        onNavigate={setSelectedIndex}
+      />
     </section>
   );
 };
