@@ -1,13 +1,15 @@
 import React from 'react';
+import Image from '../ui/Image';
+import Button from '../ui/Button';
 
 const Hero: React.FC = () => {
   return (
     <header className="relative h-[600px] pt-[72px]">
       <div className="absolute inset-0 top-[72px]">
-        <img
-          src="https://images.unsplash.com/photo-1525438160292-a4a860951216?auto=format&fit=crop&q=80&w=2069"
+        <Image
+          src="/images/hero/hero-bg.jpg"
           alt="Flat roof repair"
-          className="w-full h-full object-cover"
+          className="w-full h-full"
         />
         <div className="absolute inset-0 bg-black/50"></div>
       </div>
@@ -20,9 +22,9 @@ const Hero: React.FC = () => {
           Выполняем полный комплекс работ по ремонту и обслуживанию плоских кровель МКД. 
           Гарантируем качество и надежность на долгие годы.
         </p>
-        <button className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition">
+        <Button size="lg">
           Получить консультацию
-        </button>
+        </Button>
       </div>
     </header>
   );
