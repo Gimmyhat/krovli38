@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ImageProps } from '../../types/common';
 
 const Image: React.FC<ImageProps> = ({
@@ -13,9 +13,10 @@ const Image: React.FC<ImageProps> = ({
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [localSrc, setLocalSrc] = useState<string>('');
+  const imageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (priority) {
+    const loadImage = () => {
       const img = new window.Image();
       img.src = src;
       
@@ -28,30 +29,28 @@ const Image: React.FC<ImageProps> = ({
         setError(true);
         setLocalSrc('https://via.placeholder.com/400x300?text=Image+Not+Found');
       };
-    } else {
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const img = new window.Image();
-            img.src = src;
-            
-            img.onload = () => {
-              setLoaded(true);
-              setLocalSrc(src);
-            };
-            
-            img.onerror = () => {
-              setError(true);
-              setLocalSrc('https://via.placeholder.com/400x300?text=Image+Not+Found');
-            };
-            
-            observer.disconnect();
-          }
-        });
-      });
+    };
 
-      const container = document.createElement('div');
-      observer.observe(container);
+    if (priority) {
+      loadImage();
+    } else {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              loadImage();
+              observer.disconnect();
+            }
+          });
+        },
+        {
+          rootMargin: '50px'
+        }
+      );
+
+      if (imageRef.current) {
+        observer.observe(imageRef.current);
+      }
 
       return () => {
         observer.disconnect();
@@ -65,21 +64,24 @@ const Image: React.FC<ImageProps> = ({
 
   return (
     <div 
+      ref={imageRef}
       className={`relative overflow-hidden ${className}`}
       style={containerStyle}
     >
       {!loaded && !error && (
         <div className="absolute inset-0 bg-gray-200 animate-pulse" />
       )}
-      <img
-        src={localSrc || src}
-        alt={alt}
-        className={`w-full h-full transition-opacity duration-300 ${
-          loaded ? 'opacity-100' : 'opacity-0'
-        } object-${objectFit}`}
-        loading={priority ? 'eager' : 'lazy'}
-        {...props}
-      />
+      {(loaded || error) && (
+        <img
+          src={localSrc || src}
+          alt={alt}
+          className={`w-full h-full transition-opacity duration-300 ${
+            loaded ? 'opacity-100' : 'opacity-0'
+          } object-${objectFit}`}
+          loading={priority ? 'eager' : 'lazy'}
+          {...props}
+        />
+      )}
     </div>
   );
 };
