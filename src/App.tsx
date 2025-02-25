@@ -1,6 +1,8 @@
 import React from 'react';
 import Navigation from './components/layout/Navigation';
 import Hero from './components/sections/Hero';
+import Info from './components/sections/Info';
+import Services from './components/sections/Services';
 import { Phone, Mail, Clock, Shield, PenTool as Tool, CheckCircle, Building2, Hammer, Users, Camera, AlertTriangle, Wrench, ClipboardList } from 'lucide-react';
 
 function App() {
@@ -8,6 +10,8 @@ function App() {
     <div className="min-h-screen bg-white">
       <Navigation />
       <Hero />
+      <Info />
+      <Services />
 
       {/* Info Section */}
       <section className="py-16 bg-white">
