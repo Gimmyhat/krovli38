@@ -1,56 +1,13 @@
 import React from 'react';
+import Navigation from './components/layout/Navigation';
+import Hero from './components/sections/Hero';
 import { Phone, Mail, Clock, Shield, PenTool as Tool, CheckCircle, Building2, Hammer, Users, Camera, AlertTriangle, Wrench, ClipboardList } from 'lucide-react';
 
 function App() {
   return (
     <div className="min-h-screen bg-white">
-      {/* Fixed Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-2 text-white">
-              <Building2 className="h-8 w-8" />
-              <span className="text-2xl font-bold">РемонтКровли</span>
-            </div>
-            <div className="flex items-center space-x-8 text-white">
-              <a href="#services" className="hover:text-gray-300">Услуги</a>
-              <a href="#types" className="hover:text-gray-300">Виды работ</a>
-              <a href="#benefits" className="hover:text-gray-300">Преимущества</a>
-              <a href="#gallery" className="hover:text-gray-300">Галерея</a>
-              <a href="#contact" className="hover:text-gray-300">Контакты</a>
-              <div className="flex items-center space-x-2">
-                <Phone className="h-5 w-5" />
-                <span>+7 (XXX) XXX-XX-XX</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <header className="relative h-[600px] pt-[72px]">
-        <div className="absolute inset-0 top-[72px]">
-          <img
-            src="https://images.unsplash.com/photo-1525438160292-a4a860951216?auto=format&fit=crop&q=80&w=2069"
-            alt="Flat roof repair"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black/50"></div>
-        </div>
-        
-        <div className="relative z-10 container mx-auto px-6 pt-32">
-          <h1 className="text-5xl font-bold text-white mb-6">
-            Профессиональный ремонт<br />плоской кровли
-          </h1>
-          <p className="text-xl text-gray-200 mb-8 max-w-2xl">
-            Выполняем полный комплекс работ по ремонту и обслуживанию плоских кровель МКД. 
-            Гарантируем качество и надежность на долгие годы.
-          </p>
-          <button className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition">
-            Получить консультацию
-          </button>
-        </div>
-      </header>
+      <Navigation />
+      <Hero />
 
       {/* Info Section */}
       <section className="py-16 bg-white">
