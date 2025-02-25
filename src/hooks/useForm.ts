@@ -1,22 +1,22 @@
 import { useState } from 'react';
-import { useForm as useHookForm, UseFormReturn as HookFormReturn } from 'react-hook-form';
+import { useForm as useHookForm, UseFormReturn, FieldValues } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
-interface UseFormProps<T extends z.ZodType> {
-  schema: T;
-  onSubmit: (data: z.infer<T>) => Promise<void> | void;
-  defaultValues?: Partial<z.infer<T>>;
+interface UseFormProps<T extends FieldValues> {
+  schema: z.ZodType<T>;
+  onSubmit: (data: T) => Promise<void> | void;
+  defaultValues?: Partial<T>;
 }
 
-interface FormReturn<T extends z.ZodType> extends Omit<HookFormReturn<z.infer<T>>, 'handleSubmit'> {
+interface FormReturn<T extends FieldValues> extends Omit<UseFormReturn<T>, 'handleSubmit'> {
   isSubmitting: boolean;
   isSubmitted: boolean;
   submitError: string | null;
   onSubmit: (e: React.FormEvent) => Promise<void>;
 }
 
-export function useForm<T extends z.ZodType>({
+export function useForm<T extends FieldValues>({
   schema,
   onSubmit,
   defaultValues
@@ -25,7 +25,7 @@ export function useForm<T extends z.ZodType>({
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const form = useHookForm<z.infer<T>>({
+  const form = useHookForm<T>({
     resolver: zodResolver(schema),
     defaultValues: defaultValues as any
   });

@@ -23,7 +23,7 @@ const ContactForm: React.FC = () => {
     isSubmitting,
     submitError,
     onSubmit
-  } = useForm({
+  } = useForm<z.infer<typeof contactFormSchema>>({
     schema: contactFormSchema,
     async onSubmit(data) {
       // TODO: Реализовать отправку формы
