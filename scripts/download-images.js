@@ -27,6 +27,32 @@ const images = {
       url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&q=80&w=800',
       filename: 'service-3.jpg'
     }
+  ],
+  gallery: [
+    {
+      url: 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?auto=format&fit=crop&q=80&w=800',
+      filename: 'gallery-1.jpg'
+    },
+    {
+      url: 'https://images.unsplash.com/photo-1518481612222-68bbe828ecd1?auto=format&fit=crop&q=80&w=800',
+      filename: 'gallery-2.jpg'
+    },
+    {
+      url: 'https://images.unsplash.com/photo-1581094288338-2314dddb7ece?auto=format&fit=crop&q=80&w=800',
+      filename: 'gallery-3.jpg'
+    },
+    {
+      url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&q=80&w=800',
+      filename: 'gallery-4.jpg'
+    },
+    {
+      url: 'https://images.unsplash.com/photo-1605152276897-4f618f831968?auto=format&fit=crop&q=80&w=800',
+      filename: 'gallery-5.jpg'
+    },
+    {
+      url: 'https://images.unsplash.com/photo-1591588582259-e675bd2e6088?auto=format&fit=crop&q=80&w=800',
+      filename: 'gallery-6.jpg'
+    }
   ]
 };
 
