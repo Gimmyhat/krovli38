@@ -15,6 +15,12 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
+    
+    /* Path resolution */
+    "baseUrl": ".",
+    "paths": {
+      "src/*": ["./src/*"]
+    },
 
     /* Linting */
     "strict": true,

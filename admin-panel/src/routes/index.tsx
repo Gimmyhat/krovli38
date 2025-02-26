@@ -2,6 +2,8 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import Login from '../pages/Login';
 import Dashboard from '../pages/Dashboard';
+import Requests from '../pages/Requests';
+import Logs from '../pages/Logs';
 import Layout from '../components/Layout';
 import { ReactNode } from 'react';
 
@@ -44,6 +46,8 @@ const AppRoutes = () => {
       }>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="requests" element={<Requests />} />
+        <Route path="logs" element={<Logs />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

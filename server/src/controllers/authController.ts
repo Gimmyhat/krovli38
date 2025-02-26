@@ -4,14 +4,14 @@ import jwt from 'jsonwebtoken';
 import { User, IUser } from '../models/User';
 
 // Генерация JWT токена
-const generateToken = (userId: string): string => {
+const generateToken = (userId: string, role: string): string => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     throw new Error('JWT_SECRET не установлен');
   }
   
   return jwt.sign(
-    { id: userId },
+    { id: userId, role },
     secret,
     { expiresIn: '7d' } // Используем фиксированное значение для упрощения
   );
@@ -41,7 +41,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }) as IUser;
 
     // Генерация токена
-    const token = generateToken(user._id.toString());
+    const token = generateToken(user._id.toString(), user.role);
 
     res.status(201).json({
       status: 'success',
@@ -89,7 +89,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Генерация токена
-    const token = generateToken(user._id.toString());
+    const token = generateToken(user._id.toString(), user.role);
 
     res.status(200).json({
       status: 'success',
