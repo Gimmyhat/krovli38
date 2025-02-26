@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Регистрация администратора</title>
+</head>
+<body>
+    <script>
+        fetch('http://localhost:3000/api/auth/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                email: 'admin@krovli38.ru',
+                password: 'admin123456',
+                name: 'Администратор'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.body.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        })
+        .catch(error => {
+            document.body.innerHTML = 'Ошибка: ' + error;
+        });
+    </script>
+</body>
+</html> 

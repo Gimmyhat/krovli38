@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: './',
   plugins: [react()],
   server: {
     hmr: true,
@@ -23,6 +24,10 @@ export default defineConfig({
         manualChunks: {
           'react-vendor': ['react', 'react-dom'],
           'ui-vendor': ['lucide-react']
+        },
+        input: {
+          main: './index.html',
+          admin: './admin/index.html'
         }
       }
     }

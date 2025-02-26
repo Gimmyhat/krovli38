@@ -4,12 +4,12 @@ import Button from '../ui/Button';
 
 const Hero: React.FC = () => {
   return (
-    <header className="relative h-[600px] pt-[72px]">
-      <div className="absolute inset-0 top-[72px]">
+    <header className="relative h-[600px]">
+      <div className="absolute inset-0">
         <Image
           src="/images/hero/hero-bg.jpg"
           alt="Flat roof repair"
-          className="w-full h-full"
+          className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-black/50"></div>
       </div>
