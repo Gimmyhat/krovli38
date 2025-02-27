@@ -2,14 +2,14 @@
 FROM node:20-alpine as build
 
 WORKDIR /app
-COPY src/package*.json ./
-COPY src/tsconfig*.json ./
-COPY src/vite.config.ts ./
-COPY src/postcss.config.js ./
-COPY src/tailwind.config.js ./
-COPY src/public/ ./public/
-COPY src/src/ ./src/
-COPY src/index.html ./
+COPY package*.json ./
+COPY tsconfig*.json ./
+COPY vite.config.ts ./
+COPY postcss.config.js ./
+COPY tailwind.config.js ./
+COPY public/ ./public/
+COPY src/ ./src/
+COPY index.html ./
 RUN npm install
 RUN npm run build
 
