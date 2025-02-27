@@ -14,8 +14,8 @@ WORKDIR /app
 # Copy package files
 COPY admin-panel/package*.json ./
 
-# Clean install dependencies for Linux
-RUN npm ci --platform=linux --arch=x64 --no-optional && \
+# Install ALL dependencies (including devDependencies)
+RUN npm ci && \
     npm install @rollup/rollup-linux-x64-musl && \
     npm install esbuild@0.21.5
 
