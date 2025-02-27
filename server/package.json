@@ -6,7 +6,8 @@
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "build": "tsc",
-    "watch": "tsc -w"
+    "watch": "tsc -w",
+    "create-admin": "ts-node src/scripts/createAdmin.ts"
   },
   "keywords": [],
   "author": "",

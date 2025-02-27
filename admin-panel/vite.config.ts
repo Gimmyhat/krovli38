@@ -16,7 +16,7 @@ export default defineConfig({
     },
     middlewareMode: false
   },
-  base: '/admin/',
+  base: '/admin',
   preview: {
     port: 5174
   }

@@ -6,15 +6,21 @@ import authRoutes from './routes/authRoutes';
 import { logger, httpLogger } from './utils/logger';
 import requestRoutes from './routes/requests';
 import logsRoutes from './routes/logs';
+import { initializeAdmin } from './scripts/init';
 
 // Загрузка переменных окружения
 dotenv.config();
 
-// Подключение к базе данных
-connectDB().catch(err => {
-  logger.error('Ошибка при подключении к базе данных:', { error: err.message, stack: err.stack });
-  process.exit(1);
-});
+// Подключение к базе данных и инициализация администратора
+connectDB()
+  .then(async () => {
+    logger.info('База данных подключена успешно');
+    await initializeAdmin();
+  })
+  .catch(err => {
+    logger.error('Ошибка при подключении к базе данных:', { error: err.message, stack: err.stack });
+    process.exit(1);
+  });
 
 const app = express();
 const port = process.env.PORT || 5000;

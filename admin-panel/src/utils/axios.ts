@@ -45,7 +45,9 @@ axios.interceptors.response.use(
       // Если получаем 401 или 403, очищаем данные авторизации
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/admin/login';
+      // Перенаправляем на страницу входа через window.location,
+      // так как у нас нет доступа к navigate из react-router здесь
+      window.location.pathname = '/admin/login';
     }
     return Promise.reject(error);
   }

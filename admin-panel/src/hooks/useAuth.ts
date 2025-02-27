@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import logger from '../utils/logger';
 
@@ -18,6 +19,7 @@ interface AuthResponse {
 }
 
 export const useAuth = () => {
+  const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -58,7 +60,8 @@ export const useAuth = () => {
 
   const login = async (email: string, password: string) => {
     try {
-      logger.info('Попытка входа', { email });
+      logger.info('Начало процесса входа', { email });
+      
       const response = await axios.post<AuthResponse>('/api/auth/login', {
         email,
         password,
@@ -66,6 +69,12 @@ export const useAuth = () => {
         headers: {
           'Content-Type': 'application/json',
         },
+      });
+
+      logger.debug('Получен ответ от сервера', { 
+        status: response.status,
+        hasToken: !!response.data.token,
+        hasUser: !!response.data.data?.user 
       });
 
       const { token, data: { user } } = response.data;
@@ -77,9 +86,19 @@ export const useAuth = () => {
       setUser(user);
       setIsAuthenticated(true);
       logger.info('Вход выполнен успешно', { userId: user.id });
+      
+      // Перенаправляем на dashboard после успешного входа
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 100);
+      
       return true;
     } catch (error) {
-      logger.error('Ошибка при входе', { error });
+      logger.error('Ошибка при входе', { 
+        error,
+        isAxiosError: axios.isAxiosError(error),
+        response: axios.isAxiosError(error) ? error.response?.data : null
+      });
       return false;
     }
   };
@@ -90,8 +109,8 @@ export const useAuth = () => {
     localStorage.removeItem('user');
     setUser(null);
     setIsAuthenticated(false);
-    // Перенаправляем на страницу входа в админ-панель
-    window.location.href = '/admin/login';
+    // Перенаправляем на страницу входа
+    navigate('/login');
   };
 
   return {

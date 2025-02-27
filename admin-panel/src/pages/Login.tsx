@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { TextInput, PasswordInput, Button, Paper, Title, Container } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useAuth } from '../hooks/useAuth';
+import logger from '../utils/logger';
 
 const Login = () => {
   const { login } = useAuth();
@@ -12,29 +13,35 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    logger.debug('Начало процесса входа', { email });
 
     try {
       const success = await login(email, password);
+      logger.debug('Результат входа', { success });
+      
       if (success) {
         notifications.show({
           title: 'Успешно',
           message: 'Добро пожаловать в админ-панель',
           color: 'green',
+          autoClose: 2000,
         });
-        // Используем window.location для полного обновления страницы
-        window.location.href = '/dashboard';
+        // Редирект будет выполнен внутри хука useAuth
       } else {
         notifications.show({
           title: 'Ошибка',
           message: 'Неверный email или пароль',
           color: 'red',
+          autoClose: 5000,
         });
       }
     } catch (error) {
+      logger.error('Ошибка при входе', { error });
       notifications.show({
         title: 'Ошибка',
-        message: 'Произошла ошибка при входе',
+        message: error instanceof Error ? error.message : 'Произошла ошибка при входе',
         color: 'red',
+        autoClose: 5000,
       });
     } finally {
       setLoading(false);
