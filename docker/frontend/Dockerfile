@@ -12,7 +12,7 @@ WORKDIR /app
 
 # Install dependencies first
 COPY package.json ./
-RUN npm install --production=false
+RUN npm install --production=false --verbose
 
 # Copy configuration files
 COPY tsconfig*.json ./
@@ -26,8 +26,11 @@ COPY public/ ./public/
 COPY src/ ./src/
 COPY index.html ./
 
-# Build the application
-RUN npm run build
+# Show directory contents for debugging
+RUN ls -la
+
+# Build the application with verbose output
+RUN NODE_ENV=production npm run build --verbose
 
 # Production stage
 FROM nginx:alpine AS production
