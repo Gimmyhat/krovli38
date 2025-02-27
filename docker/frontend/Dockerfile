@@ -3,8 +3,14 @@ FROM node:20-alpine as build
 
 WORKDIR /app
 COPY package*.json ./
+COPY tsconfig*.json ./
+COPY vite.config.ts ./
+COPY postcss.config.js ./
+COPY tailwind.config.js ./
+COPY public/ ./public/
+COPY src/ ./src/
+COPY index.html ./
 RUN npm install
-COPY . .
 RUN npm run build
 
 # Production stage
