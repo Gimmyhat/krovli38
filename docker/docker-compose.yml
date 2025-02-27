@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  frontend:
+    image: ${DOCKER_HUB_USERNAME}/krovli38-frontend:latest
+    restart: always
+    networks:
+      - app-network
+
+  admin:
+    image: ${DOCKER_HUB_USERNAME}/krovli38-admin:latest
+    restart: always
+    networks:
+      - app-network
+
+  server:
+    image: ${DOCKER_HUB_USERNAME}/krovli38-server:latest
+    restart: always
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/krovli38
+      - NODE_ENV=production
+    networks:
+      - app-network
+    depends_on:
+      - mongodb
+
+  mongodb:
+    image: mongo:latest
+    restart: always
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx/logs:/var/log/nginx
+    networks:
+      - app-network
+    depends_on:
+      - frontend
+      - admin
+      - server
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongodb_data: 
