@@ -15,7 +15,8 @@ COPY package*.json ./
 
 # Clean install dependencies for Linux
 RUN npm ci --platform=linux --arch=x64 --no-optional && \
-    npm install @rollup/rollup-linux-x64-musl
+    npm install @rollup/rollup-linux-x64-musl && \
+    npm install typescript@5.2.2
 
 # Install specific esbuild version for Linux
 RUN npm install --platform=linux --arch=x64 esbuild@0.18.20 @esbuild/linux-x64@0.18.20
@@ -25,9 +26,9 @@ COPY . .
 
 # Show debug info
 RUN ls -la && \
-    npx tsc --version && \
     node --version && \
-    npm --version
+    npm --version && \
+    npx tsc --version
 
 # Build the application
 RUN npm run build

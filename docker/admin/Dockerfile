@@ -16,6 +16,7 @@ COPY admin-panel/package*.json ./
 # Clean install dependencies for Linux
 RUN npm ci --platform=linux --arch=x64 --no-optional && \
     npm install @rollup/rollup-linux-x64-musl && \
+    npm install typescript@5.2.2 && \
     npm install esbuild@0.21.5
 
 # Copy source files
@@ -23,9 +24,9 @@ COPY admin-panel/ .
 
 # Show debug info
 RUN ls -la && \
-    npx tsc --version && \
     node --version && \
-    npm --version
+    npm --version && \
+    npx tsc --version
 
 # Build the application
 RUN npm run build
