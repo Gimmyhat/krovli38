@@ -5,11 +5,14 @@ FROM node:20-alpine AS build
 ENV NODE_ENV=production
 ENV VITE_API_URL=/api
 
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
 WORKDIR /app
 
 # Install dependencies first
-COPY package*.json ./
-RUN npm ci
+COPY package.json ./
+RUN npm install --production=false
 
 # Copy configuration files
 COPY tsconfig*.json ./
@@ -22,9 +25,6 @@ COPY .eslintrc* ./
 COPY public/ ./public/
 COPY src/ ./src/
 COPY index.html ./
-
-# Install additional build dependencies if needed
-RUN npm install -g typescript vite @vitejs/plugin-react
 
 # Build the application
 RUN npm run build
