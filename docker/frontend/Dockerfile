@@ -14,26 +14,17 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# Copy configuration files
-COPY tsconfig*.json ./
-COPY vite.config.ts ./
-COPY postcss.config.js ./
-COPY tailwind.config.js ./
-COPY .eslintrc* ./
-
 # Copy source files
-COPY public/ ./public/
-COPY src/ ./src/
-COPY index.html ./
+COPY . .
 
-# Show directory contents for debugging
-RUN ls -la
+# Show directory contents and TypeScript version for debugging
+RUN ls -la && \
+    npx tsc --version && \
+    node --version && \
+    npm --version
 
-# Run TypeScript compiler first
-RUN npx tsc --noEmit false --outDir ./dist-ts
-
-# Build the application
-RUN npm run build
+# Build the application with detailed error output
+RUN npm run build || (cat /tmp/build-error.log && exit 1)
 
 # Production stage
 FROM nginx:alpine AS production
