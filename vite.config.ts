@@ -24,10 +24,6 @@ export default defineConfig({
         manualChunks: {
           'react-vendor': ['react', 'react-dom'],
           'ui-vendor': ['lucide-react']
-        },
-        input: {
-          main: './index.html',
-          admin: './admin/index.html'
         }
       }
     }
