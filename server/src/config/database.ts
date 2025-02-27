@@ -1,17 +1,18 @@
 import mongoose from 'mongoose';
 import { logger } from '../utils/logger';
 
-export const connectDB = async (): Promise<void> => {
+export const connectDB = async () => {
   try {
-    const mongoUri = process.env.MONGODB_URI;
-    
-    if (!mongoUri) {
-      throw new Error('MONGODB_URI не указан в переменных окружения');
-    }
-
     logger.info('Подключение к MongoDB...');
-    await mongoose.connect(mongoUri);
+    console.log('Connecting to MongoDB with URI:', process.env.MONGODB_URI);
+    
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://mongodb:27017/krovli38', {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
+
     logger.info('MongoDB подключена успешно');
+    console.log('MongoDB connected successfully');
     
     mongoose.connection.on('error', (err) => {
       logger.error(`Ошибка MongoDB:`, { error: err.message });
@@ -21,11 +22,9 @@ export const connectDB = async (): Promise<void> => {
       logger.warn('MongoDB отключена');
     });
 
-  } catch (error: any) {
-    logger.error('Ошибка подключения к MongoDB:', { 
-      error: error.message,
-      stack: error.stack
-    });
-    throw error;
+  } catch (err) {
+    logger.error('Ошибка подключения к MongoDB:', err);
+    console.error('MongoDB connection error:', err);
+    throw err;
   }
 }; 

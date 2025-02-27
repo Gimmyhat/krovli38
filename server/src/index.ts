@@ -11,19 +11,27 @@ import { initializeAdmin } from './scripts/init';
 // Загрузка переменных окружения
 dotenv.config();
 
+console.log('Starting server with configuration:', {
+  mongoUri: process.env.MONGODB_URI,
+  nodeEnv: process.env.NODE_ENV,
+  port: process.env.PORT || 3000
+});
+
 // Подключение к базе данных и инициализация администратора
 connectDB()
   .then(async () => {
+    console.log('Database connected successfully');
     logger.info('База данных подключена успешно');
     await initializeAdmin();
   })
   .catch(err => {
+    console.error('Database connection error:', err);
     logger.error('Ошибка при подключении к базе данных:', { error: err.message, stack: err.stack });
     process.exit(1);
   });
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 3000;
 
 // Настройка CORS
 app.use(cors({
@@ -45,6 +53,7 @@ app.use('/api/logs', logsRoutes);
 
 // Базовый маршрут API
 app.get('/api', (req, res) => {
+  console.log('Received request to /api');
   res.json({ 
     message: 'API сервер работает',
     version: '1.0.0',
@@ -58,6 +67,7 @@ app.get('/api', (req, res) => {
 
 // Обработка ошибок
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Unhandled error:', err);
   logger.error('Необработанная ошибка:', { 
     error: err.message, 
     stack: err.stack,
@@ -69,6 +79,8 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 });
 
 // Запуск сервера
-app.listen(port, () => {
-  logger.info(`Сервер запущен на порту ${port} в режиме ${process.env.NODE_ENV || 'development'}`);
+const portNumber = parseInt(port.toString(), 10);
+app.listen(portNumber, '0.0.0.0', () => {
+  console.log(`Server is running on port ${portNumber} in ${process.env.NODE_ENV || 'development'} mode`);
+  logger.info(`Сервер запущен на порту ${portNumber} в режиме ${process.env.NODE_ENV || 'development'}`);
 }); 
