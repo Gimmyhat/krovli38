@@ -18,7 +18,11 @@ const contactFormSchema = z.object({
 
 type ContactFormData = z.infer<typeof contactFormSchema>;
 
-const ContactForm: React.FC = () => {
+interface ContactFormProps {
+  onSuccess?: () => void;
+}
+
+const ContactForm: React.FC<ContactFormProps> = ({ onSuccess }) => {
   const {
     register,
     formState: { errors },
@@ -33,6 +37,20 @@ const ContactForm: React.FC = () => {
         const response = await axios.post(`${API_URL}/requests`, data);
         if (response.status === 201) {
           reset(); // Очищаем форму после успешной отправки
+          if (onSuccess) {
+            onSuccess(); // Закрываем модальное окно
+          }
+          // Показываем уведомление об успехе
+          const successMessage = document.createElement('div');
+          successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+          successMessage.textContent = 'Заявка успешно отправлена! Мы свяжемся с вами в ближайшее время.';
+          document.body.appendChild(successMessage);
+          setTimeout(() => {
+            successMessage.classList.add('animate-fade-out');
+            setTimeout(() => {
+              document.body.removeChild(successMessage);
+            }, 300);
+          }, 5000);
           return response.data;
         }
         throw new Error('Ошибка при отправке формы');

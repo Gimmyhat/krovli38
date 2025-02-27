@@ -1,8 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Image from '../ui/Image';
 import Button from '../ui/Button';
+import Modal from '../ui/Modal';
+import ContactForm from './ContactForm';
 
 const Hero: React.FC = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  };
+
   return (
     <header className="relative h-[600px]">
       <div className="absolute inset-0">
@@ -22,10 +30,18 @@ const Hero: React.FC = () => {
           Выполняем полный комплекс работ по ремонту и обслуживанию плоских кровель МКД. 
           Гарантируем качество и надежность на долгие годы.
         </p>
-        <Button size="lg">
+        <Button size="lg" onClick={() => setIsModalOpen(true)}>
           Получить консультацию
         </Button>
       </div>
+
+      <Modal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        title="Получить консультацию"
+      >
+        <ContactForm onSuccess={handleCloseModal} />
+      </Modal>
     </header>
   );
 };

@@ -25,9 +25,9 @@ interface TextAreaProps extends FormFieldProps {
 
 const inputStyles = {
   base: 'w-full px-4 py-2 rounded-lg transition-colors duration-200',
-  default: 'bg-gray-800 border border-gray-700 focus:border-blue-500 focus:outline-none',
+  default: 'bg-white border border-gray-300 focus:border-blue-500 focus:outline-none text-gray-900',
   error: 'border-red-500 focus:border-red-500',
-  disabled: 'bg-gray-700 cursor-not-allowed opacity-75'
+  disabled: 'bg-gray-100 cursor-not-allowed opacity-75'
 };
 
 export const FormInput: React.FC<InputProps> = ({
@@ -46,7 +46,7 @@ export const FormInput: React.FC<InputProps> = ({
   return (
     <div className="space-y-1">
       {label && (
-        <label className="block text-sm font-medium text-gray-200">
+        <label className="block text-sm font-medium text-gray-700">
           {label}
         </label>
       )}
@@ -89,7 +89,7 @@ export const FormTextArea: React.FC<TextAreaProps> = ({
   return (
     <div className="space-y-1">
       {label && (
-        <label className="block text-sm font-medium text-gray-200">
+        <label className="block text-sm font-medium text-gray-700">
           {label}
         </label>
       )}
