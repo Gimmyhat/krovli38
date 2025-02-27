@@ -71,7 +71,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "docker/docker-compose.yml,docker/nginx/"
+          source: "docker/docker-compose.yml,docker/nginx/,server/src/scripts/"
           target: "/root/krovli38"
           strip_components: 1
 
@@ -83,7 +83,61 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /root/krovli38
+            
+            # Создаем директорию для бэкапов если её нет
+            mkdir -p db_backups
+            
+            # Создаем бэкап базы данных перед обновлением
+            echo "Creating database backup..."
+            BACKUP_NAME="backup_$(date +%Y%m%d_%H%M%S).gz"
+            docker compose exec -T mongodb mongodump --uri="mongodb://admin:admin_password@localhost:27017/krovli38?authSource=admin" --archive --gzip > "db_backups/$BACKUP_NAME"
+            
+            # Останавливаем старые контейнеры
+            echo "Stopping old containers..."
+            docker compose down
+            
+            # Обновляем переменные окружения
             echo "DOCKER_HUB_USERNAME=${{ env.DOCKER_HUB_USERNAME }}" > .env
+            
+            # Подтягиваем новые образы
+            echo "Pulling new images..."
             docker compose pull
+            
+            # Запускаем контейнеры
+            echo "Starting new containers..."
             docker compose up -d
-            docker system prune -f 
+            
+            # Ждем, пока MongoDB будет готова
+            echo "Waiting for MongoDB to be ready..."
+            sleep 10
+            
+            # Проверяем и инициализируем админа
+            echo "Checking admin user..."
+            docker compose exec -T server node dist/scripts/checkAdmin.js || docker compose exec -T server node dist/scripts/createAdmin.js
+            
+            # Проверяем здоровье сервисов
+            echo "Checking services health..."
+            for i in {1..30}; do
+              if curl -s http://localhost/api > /dev/null; then
+                echo "API is responding"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "API failed to respond"
+                # Восстанавливаем из бэкапа в случае проблем
+                docker compose down
+                docker compose up -d mongodb
+                sleep 10
+                mongorestore --uri="mongodb://admin:admin_password@localhost:27017/krovli38?authSource=admin" --archive --gzip < "db_backups/$BACKUP_NAME"
+                docker compose up -d
+                exit 1
+              fi
+              echo "Waiting for API... ($i/30)"
+              sleep 2
+            done
+            
+            # Очистка старых образов
+            docker system prune -f
+            
+            # Удаляем старые бэкапы (оставляем последние 5)
+            cd db_backups && ls -t | tail -n +6 | xargs -r rm -- 
