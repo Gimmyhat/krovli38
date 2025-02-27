@@ -5,23 +5,24 @@ version: '3.8'
 
 services:
   frontend:
-    image: ${DOCKER_HUB_USERNAME}/krovli38-frontend:latest
+    image: krovli38-frontend:local
     restart: always
     networks:
       - app-network
 
   admin:
-    image: ${DOCKER_HUB_USERNAME}/krovli38-admin:latest
+    image: krovli38-admin:local
     restart: always
     networks:
       - app-network
 
   server:
-    image: ${DOCKER_HUB_USERNAME}/krovli38-server:latest
+    image: krovli38-server:local
     restart: always
     environment:
       - MONGODB_URI=mongodb://mongodb:27017/krovli38
       - NODE_ENV=production
+      - JWT_SECRET=your_super_secret_key_for_jwt_tokens_krovli38
     networks:
       - app-network
     depends_on:

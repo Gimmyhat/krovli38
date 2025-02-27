@@ -15,7 +15,7 @@ import {
   Text
 } from '@mantine/core';
 import { IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
-import axios from 'axios';
+import axios from '../utils/axios';
 import { notifications } from '@mantine/notifications';
 import { useDisclosure } from '@mantine/hooks';
 import logger from '../utils/logger';

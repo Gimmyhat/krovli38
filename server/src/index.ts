@@ -21,8 +21,10 @@ const port = process.env.PORT || 5000;
 
 // Настройка CORS
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'],
-  credentials: true
+  origin: '*',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Middleware
@@ -35,9 +37,17 @@ app.use('/api/auth', authRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/logs', logsRoutes);
 
-// Базовый маршрут для проверки работы сервера
-app.get('/', (req, res) => {
-  res.json({ message: 'API сервер работает' });
+// Базовый маршрут API
+app.get('/api', (req, res) => {
+  res.json({ 
+    message: 'API сервер работает',
+    version: '1.0.0',
+    endpoints: [
+      '/api/auth',
+      '/api/requests',
+      '/api/logs'
+    ]
+  });
 });
 
 // Обработка ошибок
@@ -54,5 +64,5 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 
 // Запуск сервера
 app.listen(port, () => {
-  logger.info(`Сервер запущен на порту ${port}`);
+  logger.info(`Сервер запущен на порту ${port} в режиме ${process.env.NODE_ENV || 'development'}`);
 }); 

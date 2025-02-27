@@ -59,7 +59,7 @@ export const useAuth = () => {
   const login = async (email: string, password: string) => {
     try {
       logger.info('Попытка входа', { email });
-      const response = await axios.post<AuthResponse>('http://localhost:3000/api/auth/login', {
+      const response = await axios.post<AuthResponse>('/api/auth/login', {
         email,
         password,
       }, {
@@ -90,8 +90,8 @@ export const useAuth = () => {
     localStorage.removeItem('user');
     setUser(null);
     setIsAuthenticated(false);
-    // Перенаправляем на страницу входа
-    window.location.href = '/login';
+    // Перенаправляем на страницу входа в админ-панель
+    window.location.href = '/admin/login';
   };
 
   return {

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Title, SimpleGrid, Card, Text, Group, Skeleton, Alert, Paper } from '@mantine/core';
 import { IconUsers, IconCheck, IconClock, IconAlertCircle } from '@tabler/icons-react';
-import axios from 'axios';
+import axios from '../utils/axios';
 import { API_URL } from '../config';
 import { notifications } from '@mantine/notifications';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import logger from '../utils/logger';
 
 interface Request {
   _id: string;
@@ -32,12 +33,11 @@ const Dashboard = () => {
       setLoading(true);
       setError(null);
       
-      const token = localStorage.getItem('token');
-      const response = await axios.get<{ requests: Request[] }>(`${API_URL}/requests`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
+      logger.debug('Начало загрузки данных для панели управления');
+      const response = await axios.get<{ requests: Request[] }>(`${API_URL}/requests`);
+      
       const requests = response.data.requests;
+      logger.debug('Данные получены успешно', { requestsCount: requests.length });
       
       // Подсчет статистики
       const total = requests.length;
@@ -58,6 +58,7 @@ const Dashboard = () => {
 
       setStats({ total, completed, inProgress, chartData });
     } catch (err) {
+      logger.error('Ошибка при загрузке данных', { error: err });
       const message = err instanceof Error ? err.message : 'Произошла ошибка при загрузке данных';
       setError(message);
       notifications.show({

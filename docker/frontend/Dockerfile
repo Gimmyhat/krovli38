@@ -6,25 +6,31 @@ ENV NODE_ENV=production
 ENV VITE_API_URL=/api
 
 # Install build dependencies
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ git
 
 WORKDIR /app
 
-# Install dependencies first
+# Copy package files
 COPY package*.json ./
-RUN npm install
+
+# Clean install dependencies for Linux
+RUN npm ci --platform=linux --arch=x64 --no-optional && \
+    npm install @rollup/rollup-linux-x64-musl
+
+# Install specific esbuild version for Linux
+RUN npm install --platform=linux --arch=x64 esbuild@0.18.20 @esbuild/linux-x64@0.18.20
 
 # Copy source files
 COPY . .
 
-# Show directory contents and TypeScript version for debugging
+# Show debug info
 RUN ls -la && \
     npx tsc --version && \
     node --version && \
     npm --version
 
-# Build the application with detailed error output
-RUN npm run build || (cat /tmp/build-error.log && exit 1)
+# Build the application
+RUN npm run build
 
 # Production stage
 FROM nginx:alpine AS production
