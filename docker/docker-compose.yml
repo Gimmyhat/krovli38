@@ -5,19 +5,19 @@ version: '3.8'
 
 services:
   frontend:
-    image: krovli38-frontend:local
+    image: gimmyhat/krovli38-frontend:latest
     restart: always
     networks:
       - app-network
 
   admin:
-    image: krovli38-admin:local
+    image: gimmyhat/krovli38-admin:latest
     restart: always
     networks:
       - app-network
 
   server:
-    image: krovli38-server:local
+    image: gimmyhat/krovli38-server:latest
     restart: always
     environment:
       - MONGODB_URI=mongodb://mongodb:27017/krovli38
