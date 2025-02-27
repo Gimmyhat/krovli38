@@ -1,5 +1,5 @@
-import { NavLink } from '@mantine/core';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { UnstyledButton, Group, Text } from '@mantine/core';
+import { Link, useLocation } from 'react-router-dom';
 import { IconDashboard, IconUsers, IconLogout, IconList } from '@tabler/icons-react';
 
 interface NavigationProps {
@@ -7,7 +7,6 @@ interface NavigationProps {
 }
 
 const Navigation = ({ onLogout }: NavigationProps) => {
-  const navigate = useNavigate();
   const location = useLocation();
 
   const links = [
@@ -16,23 +15,74 @@ const Navigation = ({ onLogout }: NavigationProps) => {
     { label: 'Логи', icon: IconList, path: '/logs' }
   ];
 
+  const NavButton = ({ label, icon: Icon, path, onClick }: { 
+    label: string;
+    icon: typeof IconDashboard;
+    path?: string;
+    onClick?: () => void;
+  }) => {
+    const isActive = path ? location.pathname === path : false;
+
+    if (!path) {
+      return (
+        <UnstyledButton
+          onClick={onClick}
+          style={{
+            display: 'block',
+            width: '100%',
+            padding: '8px 12px',
+            borderRadius: '4px',
+            backgroundColor: 'transparent',
+            color: 'inherit',
+            textDecoration: 'none',
+            marginBottom: '8px'
+          }}
+        >
+          <Group>
+            <Icon size="1rem" stroke={1.5} />
+            <Text size="sm">{label}</Text>
+          </Group>
+        </UnstyledButton>
+      );
+    }
+
+    return (
+      <Link
+        to={path}
+        style={{
+          display: 'block',
+          width: '100%',
+          padding: '8px 12px',
+          borderRadius: '4px',
+          backgroundColor: isActive ? 'var(--mantine-color-blue-light)' : 'transparent',
+          color: isActive ? 'var(--mantine-color-blue-filled)' : 'inherit',
+          textDecoration: 'none',
+          marginBottom: '8px'
+        }}
+      >
+        <Group>
+          <Icon size="1rem" stroke={1.5} />
+          <Text size="sm">{label}</Text>
+        </Group>
+      </Link>
+    );
+  };
+
   return (
     <div>
       {links.map((link) => (
-        <NavLink
+        <NavButton
           key={link.path}
           label={link.label}
-          leftSection={<link.icon size="1rem" stroke={1.5} />}
-          active={location.pathname === link.path}
-          onClick={() => navigate(link.path)}
+          icon={link.icon}
+          path={link.path}
         />
       ))}
       
-      <NavLink
+      <NavButton
         label="Выйти"
-        leftSection={<IconLogout size="1rem" stroke={1.5} />}
+        icon={IconLogout}
         onClick={onLogout}
-        color="red"
       />
     </div>
   );

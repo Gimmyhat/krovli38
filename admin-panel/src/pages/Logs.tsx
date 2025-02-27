@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { 
-  Title, Paper, TextInput, Button, Group, Select, Table, Badge, 
-  Text, Modal, LoadingOverlay, Code
+  Title, Paper, TextInput, Button, Group, Select, Badge, 
+  Text, Modal, Code, ScrollArea
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { showNotification } from '@mantine/notifications';
@@ -11,6 +11,7 @@ import {
 import axios from 'axios';
 import logger from '../utils/logger';
 import { API_URL } from '../config';
+import { DataTable } from 'mantine-datatable';
 
 interface LogFile {
   name: string;
@@ -25,16 +26,70 @@ interface LogEntry {
   meta?: Record<string, any>;
 }
 
+interface TableRecord extends LogEntry {
+  id: string;
+}
+
 // Форматирование даты
 const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(date);
+  try {
+    if (!dateString) return 'Дата не указана';
+    
+    // Проверяем, является ли строка timestamp в миллисекундах
+    const timestamp = Number(dateString);
+    if (!isNaN(timestamp) && timestamp > 0) {
+      return new Intl.DateTimeFormat('ru', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }).format(new Date(timestamp));
+    }
+
+    // Пробуем распарсить дату в формате winston logger (YYYY-MM-DD HH:mm:ss)
+    const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+    if (match) {
+      const [_, year, month, day, hour, minute, second] = match;
+      const date = new Date(
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        parseInt(hour),
+        parseInt(minute),
+        parseInt(second)
+      );
+      if (!isNaN(date.getTime())) {
+        return new Intl.DateTimeFormat('ru', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        }).format(date);
+      }
+    }
+
+    // Пробуем распарсить как ISO дату
+    const date = new Date(dateString);
+    if (!isNaN(date.getTime()) && date.getTime() > 0) {
+      return new Intl.DateTimeFormat('ru', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }).format(date);
+    }
+
+    return 'Некорректная дата';
+  } catch (error) {
+    console.error('Ошибка форматирования даты:', error);
+    return 'Ошибка даты';
+  }
 };
 
 // Форматирование размера файла
@@ -63,70 +118,85 @@ const getLevelColor = (level: string): string => {
 };
 
 export default function Logs() {
-  // Состояние
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  // Состояния
   const [logFiles, setLogFiles] = useState<LogFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
-  const [levelFilter, setLevelFilter] = useState('all');
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [filteredLogs, setFilteredLogs] = useState<LogEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [levelFilter, setLevelFilter] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
+
   const [opened, { open, close }] = useDisclosure(false);
   const [currentLogEntry, setCurrentLogEntry] = useState<LogEntry | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Получение списка файлов логов
+  // Вычисляем данные для текущей страницы
+  const paginatedLogs = useMemo(() => {
+    if (!filteredLogs?.length) return [];
+    
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    
+    return filteredLogs.slice(startIndex, endIndex).map((log, index) => ({
+      ...log,
+      id: `${log.timestamp}-${log.level}-${index}-${Math.random().toString(36).substr(2, 9)}`
+    }));
+  }, [filteredLogs, page, pageSize]);
+
+  // Эффект для загрузки файлов логов при монтировании
   useEffect(() => {
     fetchLogFiles();
   }, []);
 
-  // Получение содержимого выбранного файла логов
+  // Эффект для загрузки содержимого лога при выборе файла
   useEffect(() => {
     if (selectedFile) {
       fetchLogContent(selectedFile);
     }
   }, [selectedFile]);
 
+  // Эффект для фильтрации логов
+  useEffect(() => {
+    if (logs.length > 0) {
+      const filtered = applyFilters(logs, search, levelFilter || '');
+      setFilteredLogs(filtered);
+      setPage(1); // Сброс на первую страницу при изменении фильтров
+    }
+  }, [logs, search, levelFilter]);
+
   // Получение списка файлов логов
   const fetchLogFiles = async () => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      setLoading(true);
-      setError('');
-      logger.debug('Fetching log files');
-      
       const token = localStorage.getItem('token');
       const response = await axios.get(`${API_URL}/logs/files`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      // Проверяем структуру ответа
-      const files = response.data.files || response.data;
-      setLogFiles(files);
+      logger.debug('Получены файлы логов:', response.data);
       
-      // Выбор первого файла по умолчанию, если есть файлы
-      if (files.length > 0 && !selectedFile) {
-        setSelectedFile(files[0].name);
-      }
-      
-      logger.debug(`Fetched ${files.length} log files`);
-    } catch (err) {
-      logger.error('Error fetching log files', err);
-      
-      // Добавляем более подробную информацию об ошибке
-      if (axios.isAxiosError(err)) {
-        const errorMessage = err.response ? 
-          `Ошибка ${err.response.status}: ${err.response.statusText}` : 
-          'Сетевая ошибка';
-        setError(`Ошибка при загрузке списка файлов логов: ${errorMessage}`);
-        console.error('API Error:', err.response?.data);
+      if (Array.isArray(response.data.files)) {
+        setLogFiles(response.data.files);
+        // Если есть файлы и нет выбранного файла, выбираем первый
+        if (response.data.files.length > 0 && !selectedFile) {
+          setSelectedFile(response.data.files[0].name);
+        }
       } else {
-        setError('Ошибка при загрузке списка файлов логов');
+        throw new Error('Неверный формат данных от сервера');
       }
-      
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Ошибка при загрузке файлов логов';
+      logger.error('Ошибка загрузки файлов логов:', error);
+      setError(errorMessage);
       showNotification({
         title: 'Ошибка',
-        message: 'Не удалось загрузить список файлов логов',
+        message: errorMessage,
         color: 'red'
       });
     } finally {
@@ -136,39 +206,38 @@ export default function Logs() {
 
   // Получение содержимого файла логов
   const fetchLogContent = async (filename: string) => {
+    if (!filename) return;
+    
+    setLoading(true);
+    setError(null);
+    
     try {
-      setLoading(true);
-      setError('');
-      logger.debug(`Fetching content for log file: ${filename}`);
-      
       const token = localStorage.getItem('token');
       const response = await axios.get(`${API_URL}/logs/content/${filename}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      // Проверяем структуру ответа
-      const logEntries = response.data.logs || response.data;
-      setLogs(logEntries);
-      applyFilters(logEntries, search, levelFilter);
-      
-      logger.debug(`Fetched ${logEntries.length} log entries from ${filename}`);
-    } catch (err) {
-      logger.error(`Error fetching log content: ${filename}`, err);
-      
-      // Добавляем более подробную информацию об ошибке
-      if (axios.isAxiosError(err)) {
-        const errorMessage = err.response ? 
-          `Ошибка ${err.response.status}: ${err.response.statusText}` : 
-          'Сетевая ошибка';
-        setError(`Ошибка при загрузке содержимого файла лога ${filename}: ${errorMessage}`);
-        console.error('API Error:', err.response?.data);
+      logger.debug('Получено содержимое лога:', {
+        filename,
+        entriesCount: response.data?.logs?.length
+      });
+
+      if (Array.isArray(response.data.logs)) {
+        setLogs(response.data.logs);
+        // Применяем текущие фильтры к новым данным
+        const filtered = applyFilters(response.data.logs, search, levelFilter || '');
+        setFilteredLogs(filtered);
+        setPage(1); // Сброс на первую страницу при загрузке новых данных
       } else {
-        setError(`Ошибка при загрузке содержимого файла лога: ${filename}`);
+        throw new Error('Неверный формат данных лога от сервера');
       }
-      
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Ошибка при загрузке содержимого лога';
+      logger.error('Ошибка загрузки содержимого лога:', error);
+      setError(errorMessage);
       showNotification({
         title: 'Ошибка',
-        message: 'Не удалось загрузить содержимое файла лога',
+        message: errorMessage,
         color: 'red'
       });
     } finally {
@@ -216,35 +285,31 @@ export default function Logs() {
   // Обработка изменения поиска
   const handleSearchChange = (value: string) => {
     setSearch(value);
-    applyFilters(logs, value, levelFilter);
   };
 
   // Обработка изменения фильтра по уровню лога
   const handleLevelFilterChange = (value: string | null) => {
-    setLevelFilter(value || 'all');
-    applyFilters(logs, search, value || 'all');
+    setLevelFilter(value);
+  };
+
+  // Обработчик изменения страницы
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Применение фильтров
-  const applyFilters = (logsArray: LogEntry[], searchValue: string, levelValue: string) => {
-    let filtered = [...logsArray];
-    
-    // Фильтрация по поиску
-    if (searchValue) {
-      const searchLower = searchValue.toLowerCase();
-      filtered = filtered.filter(
-        log => 
-          (log.message && log.message.toLowerCase().includes(searchLower)) ||
-          (log.meta && JSON.stringify(log.meta).toLowerCase().includes(searchLower))
-      );
-    }
-    
-    // Фильтрация по уровню лога
-    if (levelValue !== 'all') {
-      filtered = filtered.filter(log => log.level.toLowerCase() === levelValue.toLowerCase());
-    }
-    
-    setFilteredLogs(filtered);
+  const applyFilters = (logsArray: LogEntry[], searchValue: string, levelValue: string): LogEntry[] => {
+    return logsArray.filter(log => {
+      const matchesSearch = searchValue === '' || 
+        log.message?.toLowerCase().includes(searchValue.toLowerCase()) ||
+        log.level?.toLowerCase().includes(searchValue.toLowerCase());
+      
+      const matchesLevel = levelValue === '' || levelValue === 'all' || 
+        log.level?.toLowerCase() === levelValue.toLowerCase();
+      
+      return matchesSearch && matchesLevel;
+    });
   };
 
   // Скачать лог-файл
@@ -270,183 +335,195 @@ export default function Logs() {
     open();
   };
 
-  // Уровни логов для фильтра
-  const levelOptions = [
-    { value: 'all', label: 'Все уровни' },
-    { value: 'error', label: 'Ошибки' },
-    { value: 'warn', label: 'Предупреждения' },
-    { value: 'info', label: 'Информация' },
-    { value: 'debug', label: 'Отладка' }
-  ];
-
   return (
-    <div>
-      <LoadingOverlay visible={loading} />
-      
-      <Title order={2} mb="xl">Системные логи</Title>
-      
-      {/* Выбор файла и действия */}
-      <Paper shadow="xs" p="md" mb="lg">
-        <Group justify="space-between">
+    <>
+      <Title order={2} mb="xl">Логи системы</Title>
+
+      {error && (
+        <Text color="red" mb="md">{error}</Text>
+      )}
+
+      <Paper shadow="xs" p="md" mb="md">
+        <Group>
           <Select
-            placeholder="Выберите файл логов"
-            value={selectedFile}
-            onChange={setSelectedFile}
+            placeholder="Выберите файл"
             data={logFiles.map(file => ({
               value: file.name,
-              label: `${file.name} (${formatFileSize(file.size)}, ${formatDate(file.updatedAt)})`
+              label: `${file.name} (${formatFileSize(file.size)})`
             }))}
-            style={{ width: 350 }}
+            value={selectedFile}
+            onChange={setSelectedFile}
+            style={{ minWidth: 250 }}
           />
-          
-          <Group gap="xs">
-            <Button 
-              variant="outline" 
-              leftSection={<IconRefresh size="1rem" />}
-              onClick={() => selectedFile && fetchLogContent(selectedFile)}
-            >
-              Обновить
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              leftSection={<IconDownload size="1rem" />}
+
+          <Button
+            leftSection={<IconRefresh size={16} />}
+            onClick={() => selectedFile && fetchLogContent(selectedFile)}
+            loading={loading}
+            variant="light"
+          >
+            Обновить
+          </Button>
+
+          <Button
+            leftSection={<IconTrash size={16} />}
+            onClick={() => selectedFile && clearLogFile()}
+            loading={deleteLoading}
+            color="red"
+            variant="light"
+          >
+            Очистить
+          </Button>
+
+          {selectedFile && (
+            <Button
+              leftSection={<IconDownload size={16} />}
               onClick={downloadLogFile}
-              disabled={!selectedFile || logs.length === 0}
+              variant="light"
             >
               Скачать
             </Button>
-            
-            <Button 
-              color="red" 
-              leftSection={<IconTrash size="1rem" />}
-              onClick={clearLogFile}
-              loading={deleteLoading}
-              disabled={!selectedFile || logs.length === 0}
-            >
-              Очистить
-            </Button>
-          </Group>
+          )}
         </Group>
       </Paper>
-      
-      {/* Фильтры */}
-      <Paper shadow="xs" p="md" mb="lg">
-        <Group justify="space-between">
+
+      <Paper shadow="xs" p="md" mb="md">
+        <Group mb="md">
           <TextInput
-            placeholder="Поиск по сообщению или метаданным"
+            placeholder="Поиск в логах..."
             value={search}
-            onChange={(e) => handleSearchChange(e.currentTarget.value)}
-            leftSection={<IconSearch size="0.9rem" />}
+            onChange={(event) => handleSearchChange(event.currentTarget.value)}
+            leftSection={<IconSearch size={16} />}
             style={{ flexGrow: 1 }}
           />
+
           <Select
-            placeholder="Фильтр по уровню"
+            placeholder="Уровень"
             value={levelFilter}
             onChange={handleLevelFilterChange}
-            data={levelOptions}
-            style={{ width: 200 }}
-            clearable={false}
+            data={[
+              { value: 'all', label: 'Все' },
+              { value: 'info', label: 'Info' },
+              { value: 'warn', label: 'Warning' },
+              { value: 'error', label: 'Error' },
+              { value: 'debug', label: 'Debug' }
+            ]}
+            style={{ minWidth: 150 }}
           />
         </Group>
+
+        <ScrollArea h={600}>
+          <DataTable<TableRecord>
+            minHeight={150}
+            records={paginatedLogs}
+            columns={[
+              {
+                accessor: 'timestamp',
+                title: 'Дата',
+                render: (record: TableRecord) => formatDate(record?.timestamp || '')
+              },
+              {
+                accessor: 'level',
+                title: 'Уровень',
+                render: (record: TableRecord) => (
+                  <Badge color={getLevelColor(record?.level || 'info')}>
+                    {record?.level || 'info'}
+                  </Badge>
+                )
+              },
+              {
+                accessor: 'message',
+                title: 'Сообщение',
+                render: (record: TableRecord) => record?.message || 'Нет сообщения'
+              },
+              {
+                accessor: 'actions',
+                title: 'Действия',
+                render: (record: TableRecord) => (
+                  <Button 
+                    variant="subtle" 
+                    size="sm" 
+                    onClick={() => record && openLogModal(record)}
+                    disabled={!record}
+                  >
+                    Детали
+                  </Button>
+                )
+              }
+            ]}
+            fetching={loading}
+            noRecordsText={loading ? 'Загрузка...' : !selectedFile ? 'Выберите файл' : filteredLogs?.length === 0 ? 'Логи не найдены' : ' '}
+            totalRecords={filteredLogs?.length || 0}
+            recordsPerPage={pageSize}
+            page={page}
+            onPageChange={handlePageChange}
+          />
+        </ScrollArea>
       </Paper>
-      
-      {/* Таблица логов */}
-      {error ? (
-        <Text color="red" mb="md">{error}</Text>
-      ) : (
-        <Paper shadow="xs" p="md">
-          <Table>
-            <thead>
-              <tr>
-                <th style={{ width: 180 }}>Время</th>
-                <th style={{ width: 100 }}>Уровень</th>
-                <th>Сообщение</th>
-                <th style={{ width: 80 }}>Детали</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={4} style={{ textAlign: 'center' }}>
-                    {loading ? 'Загрузка...' : 'Логи не найдены'}
-                  </td>
-                </tr>
-              ) : (
-                filteredLogs.map((log, index) => (
-                  <tr key={index}>
-                    <td>{log.timestamp}</td>
-                    <td>
-                      <Badge color={getLevelColor(log.level)}>
-                        {log.level}
-                      </Badge>
-                    </td>
-                    <td>
-                      {log.message && log.message.length > 100
-                        ? `${log.message.substring(0, 100)}...`
-                        : log.message}
-                    </td>
-                    <td>
-                      <Button 
-                        variant="subtle" 
-                        size="xs"
-                        onClick={() => openLogModal(log)}
-                      >
-                        Детали
-                      </Button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </Table>
-        </Paper>
-      )}
-      
-      {/* Модальное окно для просмотра деталей лога */}
-      <Modal
-        opened={opened}
-        onClose={close}
-        title="Детали записи лога"
-        size="lg"
+
+      <Modal 
+        opened={opened} 
+        onClose={close} 
+        title="Детали лога" 
+        size="xl"
+        styles={{
+          body: {
+            maxHeight: 'calc(90vh - 80px)',
+            overflowY: 'auto'
+          }
+        }}
       >
         {currentLogEntry && (
           <div>
-            <Group grow mb="md">
-              <div>
-                <Text fw={700} size="sm">Время</Text>
-                <Text>{currentLogEntry.timestamp}</Text>
-              </div>
-              <div>
-                <Text fw={700} size="sm">Уровень</Text>
-                <Badge color={getLevelColor(currentLogEntry.level)}>
-                  {currentLogEntry.level}
-                </Badge>
-              </div>
-            </Group>
-            
-            <div style={{ marginBottom: '1rem' }}>
-              <Text fw={700} size="sm">Сообщение</Text>
-              <Text>{currentLogEntry.message}</Text>
-            </div>
-            
-            {currentLogEntry.meta && Object.keys(currentLogEntry.meta).length > 0 && (
-              <div>
-                <Text fw={700} size="sm" mb="xs">Метаданные</Text>
-                <Code block style={{ maxHeight: 300, overflow: 'auto' }}>
+            <Paper withBorder p="md" mb="md">
+              <Group mb="md">
+                <div>
+                  <Text size="sm" c="dimmed">Время:</Text>
+                  <Text fw={500}>{formatDate(currentLogEntry.timestamp)}</Text>
+                </div>
+                <div>
+                  <Text size="sm" c="dimmed">Уровень:</Text>
+                  <Badge size="lg" color={getLevelColor(currentLogEntry.level)}>
+                    {currentLogEntry.level}
+                  </Badge>
+                </div>
+              </Group>
+            </Paper>
+
+            <Paper withBorder p="md" mb="md">
+              <Text size="sm" c="dimmed" mb="xs">Сообщение:</Text>
+              <Code 
+                block 
+                style={{ 
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  maxHeight: '300px',
+                  overflowY: 'auto'
+                }}
+              >
+                {currentLogEntry.message}
+              </Code>
+            </Paper>
+
+            {currentLogEntry.meta && (
+              <Paper withBorder p="md">
+                <Text size="sm" c="dimmed" mb="xs">Дополнительные данные:</Text>
+                <Code 
+                  block 
+                  style={{ 
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    maxHeight: '200px',
+                    overflowY: 'auto'
+                  }}
+                >
                   {JSON.stringify(currentLogEntry.meta, null, 2)}
                 </Code>
-              </div>
+              </Paper>
             )}
-            
-            <Group justify="flex-end" mt="xl">
-              <Button variant="outline" onClick={close}>
-                Закрыть
-              </Button>
-            </Group>
           </div>
         )}
       </Modal>
-    </div>
+    </>
   );
 } 

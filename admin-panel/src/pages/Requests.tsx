@@ -37,9 +37,9 @@ interface Request {
 const statusOptions = [
   { value: 'all', label: 'Все статусы' },
   { value: 'new', label: 'Новая' },
-  { value: 'processing', label: 'В обработке' },
+  { value: 'in_progress', label: 'В обработке' },
   { value: 'completed', label: 'Выполнена' },
-  { value: 'canceled', label: 'Отменена' }
+  { value: 'cancelled', label: 'Отменена' }
 ];
 
 // Форматирование даты
@@ -54,23 +54,22 @@ const formatDate = (dateString: string) => {
   }).format(date);
 };
 
-// Генерация бейджа для статуса
+// Получение цвета и текста для статуса
 const getStatusBadge = (status: string) => {
-  switch (status) {
-    case 'new':
-      return <Badge color="blue">Новая</Badge>;
-    case 'processing':
-      return <Badge color="yellow">В обработке</Badge>;
-    case 'completed':
-      return <Badge color="green">Выполнена</Badge>;
-    case 'canceled':
-      return <Badge color="red">Отменена</Badge>;
-    default:
-      return <Badge>Неизвестно</Badge>;
-  }
+  const statusMap: Record<string, { color: string, label: string }> = {
+    new: { color: 'blue', label: 'Новая' },
+    in_progress: { color: 'yellow', label: 'В обработке' },
+    completed: { color: 'green', label: 'Выполнена' },
+    cancelled: { color: 'red', label: 'Отменена' }
+  };
+
+  const statusInfo = statusMap[status] || { color: 'gray', label: status };
+  return <Badge color={statusInfo.color}>{statusInfo.label}</Badge>;
 };
 
 const Requests = () => {
+  logger.debug('Инициализация компонента Requests');
+  
   const [requests, setRequests] = useState<Request[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<Request[]>([]);
   const [search, setSearch] = useState('');
@@ -88,32 +87,49 @@ const Requests = () => {
 
   // Загрузка заявок
   const fetchRequests = async () => {
+    logger.debug('Начало загрузки заявок');
     try {
       setLoading(true);
       setError(null);
-      logger.debug('Fetching requests');
       
       const token = localStorage.getItem('token');
+      logger.debug('Токен авторизации получен', { tokenExists: !!token });
+      
       const response = await axios.get(`${API_URL}/requests`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
+      logger.debug('Ответ от сервера получен', { 
+        status: response.status,
+        dataExists: !!response.data,
+        dataType: typeof response.data
+      });
+      
       // Проверяем структуру ответа и получаем массив заявок
       const requestsData = response.data.requests || response.data;
+      logger.debug('Данные заявок обработаны', { 
+        count: requestsData.length,
+        firstRequest: requestsData[0] ? { 
+          id: requestsData[0]._id,
+          status: requestsData[0].status 
+        } : 'нет заявок'
+      });
+      
       setRequests(requestsData);
       applyFilters(requestsData, search, statusFilter);
-      logger.debug(`Fetched ${requestsData.length} requests`);
       
     } catch (err) {
-      logger.error('Error fetching requests', err);
+      logger.error('Ошибка при загрузке заявок', { 
+        error: err,
+        isAxiosError: axios.isAxiosError(err),
+        response: axios.isAxiosError(err) ? err.response?.data : null
+      });
       
-      // Добавляем более подробную информацию об ошибке
       if (axios.isAxiosError(err)) {
         const errorMessage = err.response ? 
           `Ошибка ${err.response.status}: ${err.response.statusText}` : 
           'Сетевая ошибка';
         setError(`Ошибка при загрузке заявок: ${errorMessage}`);
-        console.error('API Error:', err.response?.data);
       } else {
         setError('Ошибка при загрузке заявок');
       }
@@ -125,11 +141,13 @@ const Requests = () => {
       });
     } finally {
       setLoading(false);
+      logger.debug('Загрузка заявок завершена');
     }
   };
 
   // Применение фильтров к списку заявок
   const applyFilters = (requestsArray: Request[], searchValue: string, statusValue: string) => {
+    logger.debug('Применение фильтров', { searchValue, statusValue });
     let filtered = [...requestsArray];
     
     // Фильтр по поисковому запросу
@@ -148,23 +166,35 @@ const Requests = () => {
       filtered = filtered.filter(req => req.status === statusValue);
     }
     
+    logger.debug('Результаты фильтрации', { 
+      totalRequests: requestsArray.length,
+      filteredCount: filtered.length 
+    });
+    
     setFilteredRequests(filtered);
   };
 
   // Обработка изменения поискового запроса
   const handleSearchChange = (value: string) => {
+    logger.debug('Изменение поискового запроса', { value });
     setSearch(value);
     applyFilters(requests, value, statusFilter);
   };
 
   // Обработка изменения фильтра по статусу
   const handleStatusFilterChange = (value: string | null) => {
+    logger.debug('Изменение фильтра статуса', { value });
     setStatusFilter(value || 'all');
     applyFilters(requests, search, value || 'all');
   };
 
   // Открытие модального окна для просмотра/редактирования заявки
   const openRequestModal = (request: Request, isDelete = false) => {
+    logger.debug('Открытие модального окна', { 
+      requestId: request._id,
+      isDelete,
+      status: request.status 
+    });
     setCurrentRequest(request);
     setEditedStatus(request.status);
     setEditedNotes(request.notes || '');
@@ -176,9 +206,14 @@ const Requests = () => {
   const updateRequest = async () => {
     if (!currentRequest) return;
     
+    logger.debug('Начало обновления заявки', { 
+      requestId: currentRequest._id,
+      newStatus: editedStatus,
+      hasNotes: !!editedNotes 
+    });
+    
     try {
       setUpdateLoading(true);
-      logger.debug(`Updating request ${currentRequest._id} status to ${editedStatus}`);
       
       const token = localStorage.getItem('token');
       await axios.patch(
@@ -187,6 +222,7 @@ const Requests = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
+      logger.debug('Заявка успешно обновлена');
       await fetchRequests();
       close();
       
@@ -197,7 +233,10 @@ const Requests = () => {
       });
       
     } catch (err) {
-      logger.error(`Error updating request ${currentRequest._id}`, err);
+      logger.error('Ошибка при обновлении заявки', { 
+        error: err,
+        requestId: currentRequest._id 
+      });
       notifications.show({
         title: 'Ошибка',
         message: 'Не удалось обновить заявку',
@@ -212,15 +251,17 @@ const Requests = () => {
   const deleteRequest = async () => {
     if (!currentRequest) return;
     
+    logger.debug('Начало удаления заявки', { requestId: currentRequest._id });
+    
     try {
       setUpdateLoading(true);
-      logger.debug(`Deleting request ${currentRequest._id}`);
       
       const token = localStorage.getItem('token');
       await axios.delete(`${API_URL}/requests/${currentRequest._id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
+      logger.debug('Заявка успешно удалена');
       await fetchRequests();
       close();
       
@@ -231,7 +272,10 @@ const Requests = () => {
       });
       
     } catch (err) {
-      logger.error(`Error deleting request ${currentRequest._id}`, err);
+      logger.error('Ошибка при удалении заявки', { 
+        error: err,
+        requestId: currentRequest._id 
+      });
       notifications.show({
         title: 'Ошибка',
         message: 'Не удалось удалить заявку',
@@ -244,112 +288,92 @@ const Requests = () => {
 
   // Загрузка заявок при монтировании компонента
   useEffect(() => {
+    logger.debug('Компонент смонтирован, загружаем заявки');
     fetchRequests();
   }, []);
 
   return (
-    <div>
-      <LoadingOverlay visible={loading} />
-      
-      <Title order={2} mb="xl">Управление заявками</Title>
-      
-      {/* Фильтры */}
-      <Paper shadow="xs" p="md" mb="lg">
-        <Group justify="space-between">
+    <>
+      <Title order={2} mb="xl">Заявки</Title>
+
+      {error && (
+        <Paper p="md" mb="md" bg="red.1" c="red">
+          <Text>{error}</Text>
+        </Paper>
+      )}
+
+      <Paper p="md" mb="md">
+        <Group>
           <TextInput
             placeholder="Поиск по имени, телефону или сообщению"
             value={search}
-            onChange={(e) => handleSearchChange(e.currentTarget.value)}
-            leftSection={<IconSearch size="0.9rem" />}
-            style={{ flexGrow: 1 }}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            leftSection={<IconSearch size="1rem" />}
+            style={{ flex: 1 }}
           />
           <Select
-            placeholder="Фильтр по статусу"
             value={statusFilter}
             onChange={handleStatusFilterChange}
             data={statusOptions}
             style={{ width: 200 }}
-            clearable={false}
           />
         </Group>
       </Paper>
-      
-      {/* Таблица заявок */}
-      {error ? (
-        <Text color="red">{error}</Text>
-      ) : (
-        <Paper shadow="xs" p="md">
-          <Table striped highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Дата</Table.Th>
-                <Table.Th>Имя</Table.Th>
-                <Table.Th>Телефон</Table.Th>
-                <Table.Th>Сообщение</Table.Th>
-                <Table.Th>Статус</Table.Th>
-                <Table.Th style={{ width: 60 }}>Действия</Table.Th>
+
+      <Paper p="md" pos="relative">
+        <LoadingOverlay visible={loading} />
+        <Table>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Дата</Table.Th>
+              <Table.Th>Имя</Table.Th>
+              <Table.Th>Телефон</Table.Th>
+              <Table.Th>Сообщение</Table.Th>
+              <Table.Th>Статус</Table.Th>
+              <Table.Th>Действия</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {filteredRequests.map((request) => (
+              <Table.Tr key={request._id}>
+                <Table.Td>{formatDate(request.createdAt)}</Table.Td>
+                <Table.Td>{request.name}</Table.Td>
+                <Table.Td>{request.phone}</Table.Td>
+                <Table.Td>{request.message}</Table.Td>
+                <Table.Td>{getStatusBadge(request.status)}</Table.Td>
+                <Table.Td>
+                  <Group gap="xs">
+                    <ActionIcon
+                      variant="subtle"
+                      color="blue"
+                      onClick={() => openRequestModal(request)}
+                    >
+                      <IconEdit size="1rem" />
+                    </ActionIcon>
+                    <ActionIcon
+                      variant="subtle"
+                      color="red"
+                      onClick={() => openRequestModal(request, true)}
+                    >
+                      <IconTrash size="1rem" />
+                    </ActionIcon>
+                  </Group>
+                </Table.Td>
               </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {filteredRequests.length === 0 ? (
-                <Table.Tr>
-                  <Table.Td colSpan={6} style={{ textAlign: 'center' }}>
-                    {loading ? 'Загрузка...' : 'Заявки не найдены'}
-                  </Table.Td>
-                </Table.Tr>
-              ) : (
-                filteredRequests.map((request) => (
-                  <Table.Tr key={request._id}>
-                    <Table.Td>{formatDate(request.createdAt)}</Table.Td>
-                    <Table.Td>{request.name}</Table.Td>
-                    <Table.Td>{request.phone}</Table.Td>
-                    <Table.Td style={{ maxWidth: 250 }} title={request.message}>
-                      {request.message.length > 50 
-                        ? `${request.message.substring(0, 50)}...` 
-                        : request.message}
-                    </Table.Td>
-                    <Table.Td>{getStatusBadge(request.status)}</Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        <ActionIcon
-                          color="blue"
-                          onClick={() => openRequestModal(request)}
-                        >
-                          <IconEdit size="1rem" />
-                        </ActionIcon>
-                        <ActionIcon
-                          color="red"
-                          onClick={() => openRequestModal(request, true)}
-                        >
-                          <IconTrash size="1rem" />
-                        </ActionIcon>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))
-              )}
-            </Table.Tbody>
-          </Table>
-        </Paper>
-      )}
-      
-      {/* Модальное окно для просмотра/редактирования заявки */}
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Paper>
+
       <Modal 
         opened={opened} 
-        onClose={close} 
-        title={isDeleteMode ? "Удаление заявки" : "Детали заявки"} 
-        size={isDeleteMode ? 'sm' : 'md'}
+        onClose={close}
+        title={isDeleteMode ? "Удаление заявки" : "Редактирование заявки"}
       >
         {isDeleteMode ? (
           <div>
-            <Text mb="md">
-              Вы уверены, что хотите удалить заявку от <b>{currentRequest?.name}</b>?
-            </Text>
-            <Text mb="xl" color="dimmed" size="sm">
-              Это действие нельзя отменить.
-            </Text>
-            
-            <Group justify="flex-end" mt="xl">
+            <Text mb="md">Вы уверены, что хотите удалить эту заявку?</Text>
+            <Group justify="flex-end">
               <Button variant="outline" onClick={close}>Отмена</Button>
               <Button color="red" onClick={deleteRequest} loading={updateLoading}>
                 Удалить
@@ -358,52 +382,19 @@ const Requests = () => {
           </div>
         ) : (
           <div>
-            <Group grow mb="md">
-              <div>
-                <Text fw={700} size="sm">Имя</Text>
-                <Text>{currentRequest?.name}</Text>
-              </div>
-              <div>
-                <Text fw={700} size="sm">Телефон</Text>
-                <Text>{currentRequest?.phone}</Text>
-              </div>
-            </Group>
-            
-            <div style={{ marginBottom: '1rem' }}>
-              <Text fw={700} size="sm">Сообщение</Text>
-              <Text>{currentRequest?.message}</Text>
-            </div>
-            
-            <Group grow mb="md" mt="md">
-              <div>
-                <Text fw={700} size="sm">Дата создания</Text>
-                <Text>{formatDate(currentRequest?.createdAt || '')}</Text>
-              </div>
-              <div>
-                <Text fw={700} size="sm">Последнее обновление</Text>
-                <Text>{formatDate(currentRequest?.updatedAt || '')}</Text>
-              </div>
-            </Group>
-            
             <Select
               label="Статус"
-              placeholder="Выберите статус"
-              data={statusOptions.filter(option => option.value !== 'all')}
               value={editedStatus}
               onChange={(value) => setEditedStatus(value || '')}
+              data={statusOptions.filter(option => option.value !== 'all')}
               mb="md"
-              required
             />
-            
             <Textarea
-              label="Примечания"
-              placeholder="Дополнительная информация по заявке"
+              label="Заметки"
               value={editedNotes}
-              onChange={(e) => setEditedNotes(e.currentTarget.value)}
-              minRows={3}
-              mb="xl"
+              onChange={(e) => setEditedNotes(e.target.value)}
+              mb="md"
             />
-            
             <Group justify="flex-end">
               <Button variant="outline" onClick={close}>Отмена</Button>
               <Button onClick={updateRequest} loading={updateLoading}>
@@ -413,7 +404,7 @@ const Requests = () => {
           </div>
         )}
       </Modal>
-    </div>
+    </>
   );
 };
 

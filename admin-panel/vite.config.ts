@@ -13,6 +13,11 @@ export default defineConfig({
     hmr: true,
     watch: {
       usePolling: false
-    }
+    },
+    middlewareMode: false
+  },
+  base: '/',
+  preview: {
+    port: 5174
   }
 })

@@ -1,7 +1,9 @@
 import React from 'react';
 import { z } from 'zod';
+import axios from 'axios';
 import { FormInput, FormTextArea, FormButton } from '../ui/FormElements';
 import { useForm } from '../../hooks/useForm';
+import { API_URL } from '../../config';
 
 const contactFormSchema = z.object({
   name: z.string()
@@ -22,13 +24,22 @@ const ContactForm: React.FC = () => {
     formState: { errors },
     isSubmitting,
     submitError,
-    onSubmit
-  } = useForm<z.infer<typeof contactFormSchema>>({
+    onSubmit,
+    reset
+  } = useForm<ContactFormData>({
     schema: contactFormSchema,
     async onSubmit(data) {
-      // TODO: Реализовать отправку формы
-      console.log('Form data:', data);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Имитация отправки
+      try {
+        const response = await axios.post(`${API_URL}/requests`, data);
+        if (response.status === 201) {
+          reset(); // Очищаем форму после успешной отправки
+          return response.data;
+        }
+        throw new Error('Ошибка при отправке формы');
+      } catch (error) {
+        console.error('Error submitting form:', error);
+        throw new Error('Не удалось отправить заявку. Пожалуйста, попробуйте позже.');
+      }
     }
   });
 
