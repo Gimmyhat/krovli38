@@ -11,8 +11,8 @@ RUN apk add --no-cache python3 make g++
 WORKDIR /app
 
 # Install dependencies first
-COPY package.json ./
-RUN npm install --production=false --verbose
+COPY package*.json ./
+RUN npm install
 
 # Copy configuration files
 COPY tsconfig*.json ./
@@ -29,8 +29,11 @@ COPY index.html ./
 # Show directory contents for debugging
 RUN ls -la
 
-# Build the application with verbose output
-RUN NODE_ENV=production npm run build --verbose
+# Run TypeScript compiler first
+RUN npx tsc --noEmit false --outDir ./dist-ts
+
+# Build the application
+RUN npm run build
 
 # Production stage
 FROM nginx:alpine AS production
