@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine as build
+FROM node:20-alpine AS build
 
 # Set environment variables
 ENV NODE_ENV=production
@@ -7,24 +7,30 @@ ENV VITE_API_URL=/api
 
 WORKDIR /app
 
-# Copy package files first for better caching
+# Install dependencies first
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
-# Copy the rest of the files
+# Copy configuration files
 COPY tsconfig*.json ./
 COPY vite.config.ts ./
 COPY postcss.config.js ./
 COPY tailwind.config.js ./
+COPY .eslintrc* ./
+
+# Copy source files
 COPY public/ ./public/
 COPY src/ ./src/
 COPY index.html ./
+
+# Install additional build dependencies if needed
+RUN npm install -g typescript vite @vitejs/plugin-react
 
 # Build the application
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM nginx:alpine AS production
 
 # Copy built files and nginx configuration
 COPY --from=build /app/dist /usr/share/nginx/html
