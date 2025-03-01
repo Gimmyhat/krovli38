@@ -1,95 +1,41 @@
 version: '3.8'
 
+# Оверлей для локальной разработки
 services:
   mongodb:
-    image: mongo:latest
-    restart: always
     ports:
       - '27017:27017'
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=admin_password
-      - MONGO_INITDB_DATABASE=krovli38
     volumes:
       - mongodb_data_local:/data/db
-    networks:
-      - app-network-local
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
   server:
     build:
-      context: ..
-      dockerfile: docker/server/Dockerfile
-    ports:
-      - '3000:3000'
+      args:
+        NODE_ENV: development
     environment:
-      - MONGODB_URI=mongodb://admin:admin_password@mongodb:27017/krovli38?authSource=admin
       - NODE_ENV=development
-      - JWT_SECRET=your_super_secret_key_for_jwt_tokens_krovli38
     volumes:
       - ../server/src:/app/src
       - ../server/package.json:/app/package.json
       - ../server/tsconfig.json:/app/tsconfig.json
-    networks:
-      - app-network-local
-    depends_on:
-      mongodb:
-        condition: service_healthy
 
   frontend:
-    build:
-      context: ..
-      dockerfile: docker/frontend/Dockerfile
-    ports:
-      - '5173:80'
     volumes:
       - ../src:/app/src
       - ../public:/app/public
       - ../package.json:/app/package.json
       - ../vite.config.ts:/app/vite.config.ts
-    environment:
-      - VITE_API_URL=/api
-    networks:
-      - app-network-local
 
   admin:
-    build:
-      context: ..
-      dockerfile: docker/admin/Dockerfile
-    ports:
-      - '5174:80'
     volumes:
       - ../admin-panel/src:/app/src
       - ../admin-panel/public:/app/public
       - ../admin-panel/package.json:/app/package.json
       - ../admin-panel/vite.config.ts:/app/vite.config.ts
-    environment:
-      - VITE_API_URL=/api
-    networks:
-      - app-network-local
 
   nginx:
-    image: nginx:alpine
     ports:
       - '80:80'
-    volumes:
-      - ../docker/nginx/conf.d:/etc/nginx/conf.d
-      - ../docker/nginx/logs:/var/log/nginx
-    networks:
-      - app-network-local
-    depends_on:
-      - frontend
-      - admin
-      - server
-
-networks:
-  app-network-local:
-    driver: bridge
 
 volumes:
   mongodb_data_local: 

@@ -3,39 +3,15 @@
 
 version: '3.8'
 
+# Базовая конфигурация для всех окружений
 services:
-  frontend:
-    image: gimmyhat/krovli38-frontend:latest
-    restart: always
-    networks:
-      - app-network
-
-  admin:
-    image: gimmyhat/krovli38-admin:latest
-    restart: always
-    networks:
-      - app-network
-
-  server:
-    image: gimmyhat/krovli38-server:latest
-    restart: always
-    environment:
-      - MONGODB_URI=mongodb://admin:admin_password@mongodb:27017/krovli38?authSource=admin
-      - NODE_ENV=production
-      - JWT_SECRET=your_super_secret_key_for_jwt_tokens_krovli38
-    networks:
-      - app-network
-    depends_on:
-      mongodb:
-        condition: service_healthy
-
   mongodb:
     image: mongo:latest
     restart: always
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=admin_password
-      - MONGO_INITDB_DATABASE=krovli38
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-admin_password}
+      - MONGO_INITDB_DATABASE=${MONGO_DB:-krovli38}
     volumes:
       - mongodb_data:/data/db
     networks:
@@ -46,6 +22,50 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+
+  server:
+    image: ${DOCKER_REGISTRY:-gimmyhat}/krovli38-server:${TAG:-latest}
+    build:
+      context: ..
+      dockerfile: docker/server/Dockerfile
+      args:
+        NODE_ENV: ${NODE_ENV:-production}
+    restart: always
+    environment:
+      - MONGODB_URI=mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin_password}@mongodb:27017/${MONGO_DB:-krovli38}?authSource=admin
+      - NODE_ENV=${NODE_ENV:-production}
+      - JWT_SECRET=${JWT_SECRET:-your_super_secret_key_for_jwt_tokens_krovli38}
+    networks:
+      - app-network
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  frontend:
+    image: ${DOCKER_REGISTRY:-gimmyhat}/krovli38-frontend:${TAG:-latest}
+    build:
+      context: ..
+      dockerfile: docker/frontend/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    restart: always
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-/api}
+    networks:
+      - app-network
+
+  admin:
+    image: ${DOCKER_REGISTRY:-gimmyhat}/krovli38-admin:${TAG:-latest}
+    build:
+      context: ..
+      dockerfile: docker/admin/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    restart: always
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-/api}
+    networks:
+      - app-network
 
   nginx:
     image: nginx:alpine

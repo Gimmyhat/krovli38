@@ -1,0 +1,440 @@
+[1mdiff --git a/README.md b/README.md[m
+[1mindex c3ded99..c0751b0 100644[m
+[1m--- a/README.md[m
+[1m+++ b/README.md[m
+[36m@@ -1,12 +1,36 @@[m
+ # Krovli38 - Сайт компании по ремонту кровли[m
+ [m
+[31m-Проект включает в себя основной сайт компании, административную панель для управления заявками и серверную часть на Node.js.[m
+[32m+[m[32mПроект включает в себя основной сайт компании, административную панель для управления заявками и серверную часть на Node.js. Вся инфраструктура проекта контейнеризирована с использованием Docker.[m
+[32m+[m
+[32m+[m[32m## Текущий статус проекта[m
+[32m+[m[32m- ✅ Версия 1.0 - Завершена (базовая функциональность)[m
+[32m+[m[32m- ✅ Версия 2.0 - Завершена (админ-панель и API)[m
+[32m+[m[32m- 🚀 Версия 3.0 - В разработке (безопасность и оптимизация)[m
+ [m
+ ## Структура проекта[m
+ [m
+ - `/` - Основной сайт компании (React + Vite + Tailwind CSS)[m
+ - `/admin-panel` - Административная панель (React + Vite + Mantine UI + Tailwind CSS)[m
+ - `/server` - Серверная часть (Node.js + Express + MongoDB)[m
+[32m+[m[32m- `/docker` - Docker конфигурации:[m
+[32m+[m[32m  - `docker-compose.yml` - Основная конфигурация для продакшена[m
+[32m+[m[32m  - `docker-compose.local.yml` - Конфигурация для локальной разработки[m
+[32m+[m[32m  - `docker-compose.dev.yml` - Конфигурация для разработки[m
+[32m+[m[32m  - `/nginx` - Конфигурация Nginx и SSL[m
+[32m+[m[32m  - `/mongodb` - Конфигурация MongoDB[m
+[32m+[m[32m  - `/frontend`, `/admin`, `/server` - Dockerfile'ы для каждого сервиса[m
+[32m+[m[32m- `/scripts` - Вспомогательные скрипты[m
+[32m+[m[32m- `/.github` - GitHub Actions для CI/CD[m
+[32m+[m
+[32m+[m[32m## Реализованный функционал[m
+[32m+[m[32m- Основной сайт с адаптивным дизайном[m
+[32m+[m[32m- Форма обратной связи[m
+[32m+[m[32m- Административная панель с авторизацией[m
+[32m+[m[32m- API сервер с JWT аутентификацией[m
+[32m+[m[32m- Автоматический деплой через GitHub Actions[m
+[32m+[m[32m- Автоматическое резервное копирование БД[m
+[32m+[m[32m- Мониторинг здоровья сервисов[m
+[32m+[m[32m- Система автоматического отката при ошибках[m
+ [m
+ ## Технологии[m
+ [m
+[36m@@ -35,70 +59,95 @@[m
+ ## Установка и запуск[m
+ [m
+ ### Предварительные требования[m
+[31m-- Node.js 18+[m
+[31m-- MongoDB (локально или через Docker)[m
+[31m-- npm или yarn[m
+[32m+[m[32m- Docker 20.10+[m
+[32m+[m[32m- Docker Compose v2.0+[m
+[32m+[m[32m- Make (для использования Makefile команд)[m
+[32m+[m
+[32m+[m[32m### Быстрый старт[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32m# Проверка зависимостей[m
+[32m+[m[32mmake check[m
+[32m+[m
+[32m+[m[32m# Просмотр всех доступных команд[m
+[32m+[m[32mmake help[m
+[32m+[m[32m```[m
+ [m
+[31m-### Установка зависимостей[m
+[32m+[m[32m### Команды для разработки[m
+ [m
+ ```bash[m
+[31m-# Установка зависимостей основного сайта[m
+[31m-npm install[m
+[32m+[m[32m# Запуск локальной среды (автоматически останавливает предыдущую)[m
+[32m+[m[32mmake dev[m
+[32m+[m
+[32m+[m[32m# Остановка локальной среды[m
+[32m+[m[32mmake dev-down[m
+[32m+[m[32m# или[m
+[32m+[m[32mmake down  # по умолчанию останавливает dev-среду[m
+ [m
+[31m-# Установка зависимостей админ-панели[m
+[31m-cd admin-panel[m
+[31m-npm install[m
+[32m+[m[32m# Перезапуск локальной среды[m
+[32m+[m[32mmake dev-restart[m
+ [m
+[31m-# Установка зависимостей сервера[m
+[31m-cd ../server[m
+[31m-npm install[m
+[32m+[m[32m# Просмотр логов[m
+[32m+[m[32mmake logs[m
+ ```[m
+ [m
+[31m-### Запуск MongoDB через Docker[m
+[32m+[m[32m### Команды для продакшена[m
+ [m
+ ```bash[m
+[31m-cd server[m
+[31m-docker-compose up -d[m
+[32m+[m[32m# Запуск продакшен среды[m
+[32m+[m[32mmake prod[m
+[32m+[m
+[32m+[m[32m# Остановка продакшен среды (с подтверждением)[m
+[32m+[m[32mCURRENT_ENV=prod make down[m
+[32m+[m[32m# или напрямую (без подтверждения)[m
+[32m+[m[32mmake prod-down[m
+[32m+[m
+[32m+[m[32m# Перезапуск продакшен среды[m
+[32m+[m[32mmake prod-restart[m
+ ```[m
+ [m
+[31m-### Запуск проекта в режиме разработки[m
+[32m+[m[32m### Утилиты[m
+ [m
+ ```bash[m
+[31m-# Запуск всех компонентов одновременно[m
+[31m-npm run start-all[m
+[32m+[m[32m# Статус контейнеров[m
+[32m+[m[32mmake status[m
+[32m+[m
+[32m+[m[32m# Бэкап базы данных[m
+[32m+[m[32mmake mongo-dump[m
+ [m
+[31m-# Или запуск компонентов по отдельности:[m
+[32m+[m[32m# Восстановление базы данных[m
+[32m+[m[32mmake mongo-restore[m
+ [m
+[31m-# Запуск сервера[m
+[31m-cd server[m
+[31m-npm run dev[m
+[32m+[m[32m# Очистка неиспользуемых ресурсов[m
+[32m+[m[32mmake clean[m
+ [m
+[31m-# Запуск админ-панели[m
+[31m-cd admin-panel[m
+[31m-npm run dev[m
+[32m+[m[32m# Сборка образов[m
+[32m+[m[32mmake build[m
+ [m
+[31m-# Запуск основного сайта[m
+[31m-cd ..[m
+[31m-npm run dev[m
+[32m+[m[32m# Отправка образов в registry[m
+[32m+[m[32mmake push[m
+ ```[m
+ [m
+[31m-### Сборка проекта для продакшена[m
+[32m+[m[32m### Альтернативный запуск (без Make)[m
+ [m
+[32m+[m[32m#### В продакшен режиме[m
+ ```bash[m
+[31m-# Сборка основного сайта[m
+[31m-npm run build[m
+[31m-[m
+[31m-# Сборка админ-панели[m
+[31m-cd admin-panel[m
+[31m-npm run build[m
+[32m+[m[32mdocker compose -f docker/docker-compose.yml --env-file docker/.env.prod up -d --build[m
+[32m+[m[32m```[m
+ [m
+[31m-# Сборка сервера[m
+[31m-cd ../server[m
+[31m-npm run build[m
+[32m+[m[32m#### В режиме локальной разработки[m
+[32m+[m[32m```bash[m
+[32m+[m[32mdocker compose -f docker/docker-compose.yml -f docker/docker-compose.local.yml --env-file docker/.env.local up -d --build[m
+ ```[m
+ [m
+ ## Доступ к приложениям[m
+ [m
+[32m+[m[32mВ продакшен режиме:[m
+[32m+[m[32m- Основной сайт: https://krovli38.ru[m
+[32m+[m[32m- Админ-панель: https://admin.krovli38.ru[m
+[32m+[m[32m- API сервер: https://api.krovli38.ru[m
+[32m+[m
+[32m+[m[32mВ режиме разработки:[m
+ - Основной сайт: http://localhost:5173[m
+ - Админ-панель: http://localhost:5174[m
+ - API сервер: http://localhost:3000[m
+[36m@@ -110,12 +159,40 @@[m [mnpm run build[m
+ - Email: admin@krovli38.ru[m
+ - Пароль: admin123456[m
+ [m
+[32m+[m[32m## Мониторинг и поддержка[m
+[32m+[m
+[32m+[m[32m- Автоматическое резервное копирование БД каждые 24 часа[m
+[32m+[m[32m- Мониторинг здоровья сервисов через Docker healthcheck[m
+[32m+[m[32m- Автоматический откат при критических ошибках[m
+[32m+[m[32m- Логирование всех действий в системе[m
+[32m+[m[32m- Nginx логи доступны в `/docker/nginx/logs`[m
+[32m+[m[32m- Мониторинг состояния контейнеров через Docker stats[m
+[32m+[m
+[32m+[m[32m## Безопасность[m
+[32m+[m
+[32m+[m[32m- JWT аутентификация[m
+[32m+[m[32m- SSL/TLS шифрование (через Nginx)[m
+[32m+[m[32m- Защита от основных типов атак[m
+[32m+[m[32m- Валидация всех входящих данных[m
+[32m+[m[32m- Изолированная сеть Docker для всех сервисов[m
+[32m+[m[32m- Автоматическая проверка зависимостей на уязвимости[m
+[32m+[m
+ ## Документация[m
+ [m
+ Дополнительная документация доступна в следующих файлах:[m
+ [m
+[31m-- [Роадмап проекта](ROADMAP.md)[m
+[32m+[m[32m- [Роадмап проекта](roadmap.md)[m
+ - [API документация](server/API.md)[m
+[32m+[m[32m- [Инструкция по деплою](docs/deployment.md)[m
+[32m+[m[32m- [Руководство по разработке](docs/development.md)[m
+[32m+[m
+[32m+[m[32m## Участие в разработке[m
+[32m+[m
+[32m+[m[32m1. Форкните репозиторий[m
+[32m+[m[32m2. Создайте ветку для новой функциональности (`git checkout -b feature/amazing-feature`)[m
+[32m+[m[32m3. Зафиксируйте изменения (`git commit -m 'Add amazing feature'`)[m
+[32m+[m[32m4. Отправьте изменения в репозиторий (`git push origin feature/amazing-feature`)[m
+[32m+[m[32m5. Создайте Pull Request[m
+ [m
+ ## Лицензия[m
+ [m
+[1mdiff --git a/docker/docker-compose.local.yml b/docker/docker-compose.local.yml[m
+[1mindex ddb74a9..102b38f 100644[m
+[1m--- a/docker/docker-compose.local.yml[m
+[1m+++ b/docker/docker-compose.local.yml[m
+[36m@@ -1,95 +1,41 @@[m
+ version: '3.8'[m
+ [m
+[32m+[m[32m# Оверлей для локальной разработки[m
+ services:[m
+   mongodb:[m
+[31m-    image: mongo:latest[m
+[31m-    restart: always[m
+     ports:[m
+       - '27017:27017'[m
+[31m-    environment:[m
+[31m-      - MONGO_INITDB_ROOT_USERNAME=admin[m
+[31m-      - MONGO_INITDB_ROOT_PASSWORD=admin_password[m
+[31m-      - MONGO_INITDB_DATABASE=krovli38[m
+     volumes:[m
+       - mongodb_data_local:/data/db[m
+[31m-    networks:[m
+[31m-      - app-network-local[m
+[31m-    healthcheck:[m
+[31m-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"][m
+[31m-      interval: 10s[m
+[31m-      timeout: 5s[m
+[31m-      retries: 5[m
+[31m-      start_period: 30s[m
+ [m
+   server:[m
+     build:[m
+[31m-      context: ..[m
+[31m-      dockerfile: docker/server/Dockerfile[m
+[31m-    ports:[m
+[31m-      - '3000:3000'[m
+[32m+[m[32m      args:[m
+[32m+[m[32m        NODE_ENV: development[m
+     environment:[m
+[31m-      - MONGODB_URI=mongodb://admin:admin_password@mongodb:27017/krovli38?authSource=admin[m
+       - NODE_ENV=development[m
+[31m-      - JWT_SECRET=your_super_secret_key_for_jwt_tokens_krovli38[m
+     volumes:[m
+       - ../server/src:/app/src[m
+       - ../server/package.json:/app/package.json[m
+       - ../server/tsconfig.json:/app/tsconfig.json[m
+[31m-    networks:[m
+[31m-      - app-network-local[m
+[31m-    depends_on:[m
+[31m-      mongodb:[m
+[31m-        condition: service_healthy[m
+ [m
+   frontend:[m
+[31m-    build:[m
+[31m-      context: ..[m
+[31m-      dockerfile: docker/frontend/Dockerfile[m
+[31m-    ports:[m
+[31m-      - '5173:80'[m
+     volumes:[m
+       - ../src:/app/src[m
+       - ../public:/app/public[m
+       - ../package.json:/app/package.json[m
+       - ../vite.config.ts:/app/vite.config.ts[m
+[31m-    environment:[m
+[31m-      - VITE_API_URL=/api[m
+[31m-    networks:[m
+[31m-      - app-network-local[m
+ [m
+   admin:[m
+[31m-    build:[m
+[31m-      context: ..[m
+[31m-      dockerfile: docker/admin/Dockerfile[m
+[31m-    ports:[m
+[31m-      - '5174:80'[m
+     volumes:[m
+       - ../admin-panel/src:/app/src[m
+       - ../admin-panel/public:/app/public[m
+       - ../admin-panel/package.json:/app/package.json[m
+       - ../admin-panel/vite.config.ts:/app/vite.config.ts[m
+[31m-    environment:[m
+[31m-      - VITE_API_URL=/api[m
+[31m-    networks:[m
+[31m-      - app-network-local[m
+ [m
+   nginx:[m
+[31m-    image: nginx:alpine[m
+     ports:[m
+       - '80:80'[m
+[31m-    volumes:[m
+[31m-      - ../docker/nginx/conf.d:/etc/nginx/conf.d[m
+[31m-      - ../docker/nginx/logs:/var/log/nginx[m
+[31m-    networks:[m
+[31m-      - app-network-local[m
+[31m-    depends_on:[m
+[31m-      - frontend[m
+[31m-      - admin[m
+[31m-      - server[m
+[31m-[m
+[31m-networks:[m
+[31m-  app-network-local:[m
+[31m-    driver: bridge[m
+ [m
+ volumes:[m
+   mongodb_data_local: [m
+\ No newline at end of file[m
+[1mdiff --git a/docker/docker-compose.yml b/docker/docker-compose.yml[m
+[1mindex 4b6db23..261ad30 100644[m
+[1m--- a/docker/docker-compose.yml[m
+[1m+++ b/docker/docker-compose.yml[m
+[36m@@ -3,49 +3,69 @@[m
+ [m
+ version: '3.8'[m
+ [m
+[32m+[m[32m# Базовая конфигурация для всех окружений[m
+ services:[m
+[31m-  frontend:[m
+[31m-    image: gimmyhat/krovli38-frontend:latest[m
+[31m-    restart: always[m
+[31m-    networks:[m
+[31m-      - app-network[m
+[31m-[m
+[31m-  admin:[m
+[31m-    image: gimmyhat/krovli38-admin:latest[m
+[32m+[m[32m  mongodb:[m
+[32m+[m[32m    image: mongo:latest[m
+     restart: always[m
+[32m+[m[32m    environment:[m
+[32m+[m[32m      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:-admin}[m
+[32m+[m[32m      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-admin_password}[m
+[32m+[m[32m      - MONGO_INITDB_DATABASE=${MONGO_DB:-krovli38}[m
+[32m+[m[32m    volumes:[m
+[32m+[m[32m      - mongodb_data:/data/db[m
+     networks:[m
+       - app-network[m
+[32m+[m[32m    healthcheck:[m
+[32m+[m[32m      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"][m
+[32m+[m[32m      interval: 10s[m
+[32m+[m[32m      timeout: 5s[m
+[32m+[m[32m      retries: 5[m
+[32m+[m[32m      start_period: 30s[m
+ [m
+   server:[m
+[31m-    image: gimmyhat/krovli38-server:latest[m
+[32m+[m[32m    image: ${DOCKER_REGISTRY:-gimmyhat}/krovli38-server:${TAG:-latest}[m
+[32m+[m[32m    build:[m
+[32m+[m[32m      context: ..[m
+[32m+[m[32m      dockerfile: docker/server/Dockerfile[m
+[32m+[m[32m      args:[m
+[32m+[m[32m        NODE_ENV: ${NODE_ENV:-production}[m
+     restart: always[m
+     environment:[m
+[31m-      - MONGODB_URI=mongodb://admin:admin_password@mongodb:27017/krovli38?authSource=admin[m
+[31m-      - NODE_ENV=production[m
+[31m-      - JWT_SECRET=your_super_secret_key_for_jwt_tokens_krovli38[m
+[32m+[m[32m      - MONGODB_URI=mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin_password}@mongodb:27017/${MONGO_DB:-krovli38}?authSource=admin[m
+[32m+[m[32m      - NODE_ENV=${NODE_ENV:-production}[m
+[32m+[m[32m      - JWT_SECRET=${JWT_SECRET:-your_super_secret_key_for_jwt_tokens_krovli38}[m
+     networks:[m
+       - app-network[m
+     depends_on:[m
+       mongodb:[m
+         condition: service_healthy[m
+ [m
+[31m-  mongodb:[m
+[31m-    image: mongo:latest[m
+[32m+[m[32m  frontend:[m
+[32m+[m[32m    image: ${DOCKER_REGISTRY:-gimmyhat}/krovli38-frontend:${TAG:-latest}[m
+[32m+[m[32m    build:[m
+[32m+[m[32m      context: ..[m
+[32m+[m[32m      dockerfile: docker/frontend/Dockerfile[m
+[32m+[m[32m      args:[m
+[32m+[m[32m        VITE_API_URL: ${VITE_API_URL:-/api}[m
+     restart: always[m
+     environment:[m
+[31m-      - MONGO_INITDB_ROOT_USERNAME=admin[m
+[31m-      - MONGO_INITDB_ROOT_PASSWORD=admin_password[m
+[31m-      - MONGO_INITDB_DATABASE=krovli38[m
+[31m-    volumes:[m
+[31m-      - mongodb_data:/data/db[m
+[32m+[m[32m      - VITE_API_URL=${VITE_API_URL:-/api}[m
+[32m+[m[32m    networks:[m
+[32m+[m[32m      - app-network[m
+[32m+[m
+[32m+[m[32m  admin:[m
+[32m+[m[32m    image: ${DOCKER_REGISTRY:-gimmyhat}/krovli38-admin:${TAG:-latest}[m
+[32m+[m[32m    build:[m
+[32m+[m[32m      context: ..[m
+[32m+[m[32m      dockerfile: docker/admin/Dockerfile[m
+[32m+[m[32m      args:[m
+[32m+[m[32m        VITE_API_URL: ${VITE_API_URL:-/api}[m
+[32m+[m[32m    restart: always[m
+[32m+[m[32m    environment:[m
+[32m+[m[32m      - VITE_API_URL=${VITE_API_URL:-/api}[m
+     networks:[m
+       - app-network[m
+[31m-    healthcheck:[m
+[31m-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"][m
+[31m-      interval: 10s[m
+[31m-      timeout: 5s[m
+[31m-      retries: 5[m
+[31m-      start_period: 30s[m
+ [m
+   nginx:[m
+     image: nginx:alpine[m
+[1mdiff --git a/package.json b/package.json[m
+[1mindex b28c37e..4f897d4 100644[m
+[1m--- a/package.json[m
+[1m+++ b/package.json[m
+[36m@@ -14,7 +14,13 @@[m
+     "dev:server": "cd server && npm run dev",[m
+     "start-all": "concurrently \"npm run dev\" \"npm run dev:admin\" \"npm run dev:server\"",[m
+     "build:all": "npm run build && cd admin-panel && npm run build && cd ../server && npm run build",[m
+[31m-    "install:all": "npm install && cd admin-panel && npm install && cd ../server && npm install"[m
+[32m+[m[32m    "install:all": "npm install && cd admin-panel && npm install && cd ../server && npm install",[m
+[32m+[m[32m    "docker:local": "docker compose -f docker/docker-compose.yml -f docker/docker-compose.local.yml --env-file docker/.env.local up -d --build",[m
+[32m+[m[32m    "docker:local:down": "docker compose -f docker/docker-compose.yml -f docker/docker-compose.local.yml --env-file docker/.env.local down",[m
+[32m+[m[32m    "docker:prod": "docker compose -f docker/docker-compose.yml --env-file docker/.env.prod up -d --build",[m
+[32m+[m[32m    "docker:prod:down": "docker compose -f docker/docker-compose.yml --env-file docker/.env.prod down",[m
+[32m+[m[32m    "docker:build": "docker compose -f docker/docker-compose.yml build",[m
+[32m+[m[32m    "docker:push": "docker compose -f docker/docker-compose.yml push"[m
+   },[m
+   "keywords": [[m
+     "react",[m

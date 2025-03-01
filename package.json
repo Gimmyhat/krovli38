@@ -14,7 +14,13 @@
     "dev:server": "cd server && npm run dev",
     "start-all": "concurrently \"npm run dev\" \"npm run dev:admin\" \"npm run dev:server\"",
     "build:all": "npm run build && cd admin-panel && npm run build && cd ../server && npm run build",
-    "install:all": "npm install && cd admin-panel && npm install && cd ../server && npm install"
+    "install:all": "npm install && cd admin-panel && npm install && cd ../server && npm install",
+    "docker:local": "docker compose -f docker/docker-compose.yml -f docker/docker-compose.local.yml --env-file docker/.env.local up -d --build",
+    "docker:local:down": "docker compose -f docker/docker-compose.yml -f docker/docker-compose.local.yml --env-file docker/.env.local down",
+    "docker:prod": "docker compose -f docker/docker-compose.yml --env-file docker/.env.prod up -d --build",
+    "docker:prod:down": "docker compose -f docker/docker-compose.yml --env-file docker/.env.prod down",
+    "docker:build": "docker compose -f docker/docker-compose.yml build",
+    "docker:push": "docker compose -f docker/docker-compose.yml push"
   },
   "keywords": [
     "react",
