@@ -6,6 +6,8 @@ import authRoutes from './routes/authRoutes';
 import { logger, httpLogger } from './utils/logger';
 import requestRoutes from './routes/requests';
 import logsRoutes from './routes/logs';
+// @ts-ignore - временная заглушка для экспериментальных маршрутов изображений
+import imageRoutes from './routes/imageRoutes';
 import { initializeAdmin } from './scripts/init';
 
 // Загрузка переменных окружения
@@ -50,17 +52,17 @@ app.use(httpLogger); // Добавляем логирование HTTP запр�
 app.use('/api/auth', authRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/logs', logsRoutes);
+app.use('/api/images', imageRoutes);
 
 // Базовый маршрут API
 app.get('/api', (req, res) => {
-  console.log('Received request to /api');
-  res.json({ 
-    message: 'API сервер работает',
-    version: '1.0.0',
+  res.json({
+    message: 'Добро пожаловать в API Krovli38',
     endpoints: [
       '/api/auth',
       '/api/requests',
-      '/api/logs'
+      '/api/logs',
+      '/api/images'
     ]
   });
 });
