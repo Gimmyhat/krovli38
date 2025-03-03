@@ -1,6 +1,6 @@
 import { UnstyledButton, Group, Text } from '@mantine/core';
 import { Link, useLocation } from 'react-router-dom';
-import { IconDashboard, IconUsers, IconLogout, IconList } from '@tabler/icons-react';
+import { IconDashboard, IconUsers, IconLogout, IconList, IconPhoto } from '@tabler/icons-react';
 
 interface NavigationProps {
   onLogout: () => void;
@@ -12,7 +12,8 @@ const Navigation = ({ onLogout }: NavigationProps) => {
   const links = [
     { label: 'Панель управления', icon: IconDashboard, path: '/dashboard' },
     { label: 'Заявки', icon: IconUsers, path: '/requests' },
-    { label: 'Логи', icon: IconList, path: '/logs' }
+    { label: 'Логи', icon: IconList, path: '/logs' },
+    { label: 'Изображения', icon: IconPhoto, path: '/images' }
   ];
 
   const NavButton = ({ label, icon: Icon, path, onClick }: { 

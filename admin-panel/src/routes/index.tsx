@@ -4,6 +4,7 @@ import Login from '../pages/Login';
 import Dashboard from '../pages/Dashboard';
 import Requests from '../pages/Requests';
 import Logs from '../pages/Logs';
+import Images from '../pages/Images';
 import Layout from '../components/Layout';
 import { ReactNode } from 'react';
 
@@ -48,6 +49,7 @@ const AppRoutes = () => {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="requests" element={<Requests />} />
         <Route path="logs" element={<Logs />} />
+        <Route path="images" element={<Images />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
