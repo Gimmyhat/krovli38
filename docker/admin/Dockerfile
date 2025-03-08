@@ -1,51 +1,45 @@
-# Базовый образ с зависимостями - будет переиспользоваться для всех сборок
-FROM node:20-alpine AS deps
-WORKDIR /app
+# Build stage
+FROM node:20-alpine AS build
 
-# Установка глобальных инструментов один раз
+# Install build dependencies
 RUN apk add --no-cache python3 make g++ git && \
     npm install -g typescript@5.2.2 vite@4.5.0
 
-# Копирование только файлов пакетов для более эффективного кэширования
-COPY admin-panel/package*.json ./
-
-# Установка только необходимых зависимостей с правильным кэшированием
-RUN npm ci && \
-    npm install @rollup/rollup-linux-x64-musl && \
-    npm install esbuild@0.21.5 && \
-    npm cache clean --force
-
-# Этап сборки
-FROM deps AS build
 WORKDIR /app
 
-# Копирование исходного кода
-# Разделяем копирование на статические ресурсы и файлы кода для лучшего кэширования
-COPY admin-panel/public ./public/
-COPY admin-panel/index.html ./
-COPY admin-panel/vite.config.ts ./
-COPY admin-panel/tsconfig*.json ./
+# Copy package files
+COPY admin-panel/package*.json ./
 
-# Копирование исходного кода (самое частое изменение)
-COPY admin-panel/src ./src/
+# Install ALL dependencies with development packages
+ENV NODE_ENV=development
+RUN npm ci && \
+    npm install @rollup/rollup-linux-x64-musl && \
+    npm install esbuild@0.21.5
 
-# Параметры сборки
+# Copy source files
+COPY admin-panel/ .
+
+# Show debug info
+RUN ls -la && \
+    node --version && \
+    npm --version
+
+# Set production environment for build
 ENV NODE_ENV=production
 ENV VITE_API_URL=/api
 
-# Сборка приложения
+# Build the application
 RUN npm run build
 
-# Этап продакшена (финальный образ)
+# Production stage
 FROM nginx:alpine AS production
-WORKDIR /usr/share/nginx/html
 
-# Копирование только собранных файлов
-COPY --from=build /app/dist ./
-COPY admin-panel/nginx.conf /etc/nginx/conf.d/default.conf
+# Copy built files and nginx configuration
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY docker/admin/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Экспорт порта
+# Expose port
 EXPOSE 80
 
-# Запуск Nginx
+# Start nginx
 CMD ["nginx", "-g", "daemon off;"] 

@@ -1,17 +1,13 @@
-import { v2 as cloudinary } from 'cloudinary';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import { v2 as cloudinary, UploadApiOptions, UploadApiResponse } from 'cloudinary';
 
 /**
  * Настройка подключения к Cloudinary
  * Параметры берутся из переменных окружения
  */
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dr0hjlr79',
-  api_key: process.env.CLOUDINARY_API_KEY || '586934817968136',
-  api_secret: process.env.CLOUDINARY_API_SECRET || 'YqBkV_O8W2RwDIpOTuEea3ghoFA',
-  secure: true
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
 interface UploadOptions {
@@ -24,12 +20,13 @@ interface UploadOptions {
  * Загрузка изображения в Cloudinary
  * @param {Buffer} fileBuffer - Буфер файла изображения
  * @param {UploadOptions} options - Настройки загрузки
- * @returns {Promise<any>} - Промис с результатом загрузки
+ * @returns {Promise<UploadApiResponse>} - Промис с результатом загрузки
  */
-export const uploadImage = (fileBuffer: Buffer, options: UploadOptions = {}): Promise<any> => {
+export const uploadImage = (fileBuffer: Buffer, options: UploadOptions = {}): Promise<UploadApiResponse> => {
   return new Promise((resolve, reject) => {
-    const uploadOptions = {
-      folder: 'krovli38',
+    const uploadOptions: UploadApiOptions = {
+      folder: options.folder || 'krovli38',
+      resource_type: 'auto',
       ...options
     };
 
@@ -38,7 +35,7 @@ export const uploadImage = (fileBuffer: Buffer, options: UploadOptions = {}): Pr
       uploadOptions,
       (error, result) => {
         if (error) return reject(error);
-        resolve(result);
+        resolve(result as UploadApiResponse);
       }
     ).end(fileBuffer);
   });
@@ -50,7 +47,12 @@ export const uploadImage = (fileBuffer: Buffer, options: UploadOptions = {}): Pr
  * @returns {Promise} - Промис с результатом удаления
  */
 export const deleteImage = async (publicId: string): Promise<any> => {
-  return cloudinary.uploader.destroy(publicId);
+  try {
+    return await cloudinary.uploader.destroy(publicId);
+  } catch (error) {
+    console.error('Error deleting image from Cloudinary:', error);
+    throw error;
+  }
 };
 
 export default cloudinary; 

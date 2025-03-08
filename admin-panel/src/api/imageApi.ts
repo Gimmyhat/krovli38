@@ -33,42 +33,26 @@ export interface ImageUpdateData {
 // Получение списка всех изображений
 export const fetchImages = async (): Promise<ImageData[]> => {
   try {
-    console.log('Fetching images from:', `${API_URL}/images`);
     const { data } = await axios.get(`${API_URL}/images`, {
       withCredentials: true
     });
-    console.log('Received images data:', data);
-    
-    // Проверяем структуру ответа
-    if (data && data.images && Array.isArray(data.images)) {
-      return data.images;
-    } else {
-      console.warn('Unexpected API response format:', data);
-      return [];
-    }
+    return data.images;
   } catch (error) {
     console.error('Ошибка при получении изображений:', error);
-    // Возвращаем пустой массив вместо выбрасывания исключения
-    return [];
+    throw error;
   }
 };
 
 // Получение конкретного изображения по ID
-export const fetchImageById = async (id: string): Promise<ImageData | null> => {
+export const fetchImageById = async (id: string): Promise<ImageData> => {
   try {
     const { data } = await axios.get(`${API_URL}/images/${id}`, {
       withCredentials: true
     });
-    
-    if (data && data.image) {
-      return data.image;
-    } else {
-      console.warn(`Изображение с ID ${id} не найдено или неверный формат ответа:`, data);
-      return null;
-    }
+    return data.image;
   } catch (error) {
     console.error(`Ошибка при получении изображения с ID ${id}:`, error);
-    return null;
+    throw error;
   }
 };
 
@@ -82,7 +66,7 @@ export const uploadSingleImage = async (
     section?: string;
     tags?: string[];
   }
-): Promise<ImageData | null> => {
+): Promise<ImageData> => {
   try {
     const formData = new FormData();
     formData.append('image', file);
@@ -103,12 +87,7 @@ export const uploadSingleImage = async (
       withCredentials: true
     });
     
-    if (data && data.image) {
-      return data.image;
-    } else {
-      console.warn('Неожиданный формат ответа при загрузке изображения:', data);
-      return null;
-    }
+    return data.image;
   } catch (error) {
     console.error('Ошибка при загрузке изображения:', error);
     throw error;
@@ -146,12 +125,7 @@ export const uploadMultipleImages = async (
       withCredentials: true
     });
     
-    if (data && data.images && Array.isArray(data.images)) {
-      return data.images;
-    } else {
-      console.warn('Неожиданный формат ответа при загрузке нескольких изображений:', data);
-      return [];
-    }
+    return data.images;
   } catch (error) {
     console.error('Ошибка при загрузке изображений:', error);
     throw error;
@@ -159,18 +133,12 @@ export const uploadMultipleImages = async (
 };
 
 // Обновление метаданных изображения
-export const updateImage = async (id: string, updateData: ImageUpdateData): Promise<ImageData | null> => {
+export const updateImage = async (id: string, updateData: ImageUpdateData): Promise<ImageData> => {
   try {
     const { data } = await axios.put(`${API_URL}/images/${id}`, updateData, {
       withCredentials: true
     });
-    
-    if (data && data.image) {
-      return data.image;
-    } else {
-      console.warn(`Неожиданный формат ответа при обновлении изображения с ID ${id}:`, data);
-      return null;
-    }
+    return data.image;
   } catch (error) {
     console.error(`Ошибка при обновлении изображения с ID ${id}:`, error);
     throw error;
@@ -183,16 +151,7 @@ export const deleteImage = async (id: string): Promise<{ success: boolean; messa
     const { data } = await axios.delete(`${API_URL}/images/${id}`, {
       withCredentials: true
     });
-    
-    if (data) {
-      return {
-        success: !!data.success,
-        message: data.message || 'Изображение удалено'
-      };
-    } else {
-      console.warn(`Неожиданный формат ответа при удалении изображения с ID ${id}:`, data);
-      return { success: false, message: 'Ошибка: неожиданный ответ от сервера' };
-    }
+    return data;
   } catch (error) {
     console.error(`Ошибка при удалении изображения с ID ${id}:`, error);
     throw error;

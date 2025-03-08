@@ -1,6 +1,8 @@
 # Main docker-compose configuration for krovli38 project
 # Includes frontend, admin panel, backend server, MongoDB, and Nginx reverse proxy
 
+version: '3.8'
+
 # Базовая конфигурация для всех окружений
 services:
   mongodb:
