@@ -10,137 +10,104 @@ import {
   Image, 
   Badge, 
   ActionIcon, 
-  Tooltip, 
   Modal, 
   TextInput,
-  Select,
-  MultiSelect,
-  Textarea,
   Switch,
   LoadingOverlay,
   Alert,
-  Menu,
-  Pagination,
-  Paper,
-  Flex
+  Stack,
+  Paper
 } from '@mantine/core';
 import { 
   IconPencil, 
   IconTrash, 
-  IconDownload, 
-  IconFilter, 
-  IconSearch, 
   IconRefresh,
   IconEye,
   IconEyeOff,
   IconCheck,
-  IconX,
-  IconDotsVertical,
   IconAlertCircle,
-  IconCopy
-} from '@tabler/icons-react';
+  IconCopy} from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { fetchImages, updateImage, deleteImage, ImageData, ImageUpdateData } from '../../api/imageApi';
 
-// Типы изображений для выбора (те же, что в ImageUploader)
-const IMAGE_TYPES = [
-  { value: 'banner', label: 'Баннер' },
-  { value: 'gallery', label: 'Галерея' },
-  { value: 'product', label: 'Продукт' },
-  { value: 'category', label: 'Категория' },
-  { value: 'icon', label: 'Иконка' },
-  { value: 'logo', label: 'Логотип' },
-];
-
-// Разделы сайта для выбора (те же, что в ImageUploader)
-const SECTIONS = [
-  { value: 'home', label: 'Главная' },
-  { value: 'catalog', label: 'Каталог' },
-  { value: 'portfolio', label: 'Портфолио' },
-  { value: 'about', label: 'О нас' },
-  { value: 'contacts', label: 'Контакты' },
-];
-
-// Доступные теги (те же, что в ImageUploader)
-const AVAILABLE_TAGS = [
-  { value: 'featured', label: 'Главное' },
-  { value: 'new', label: 'Новое' },
-  { value: 'promo', label: 'Промо' },
-  { value: 'background', label: 'Фон' },
-  { value: 'small', label: 'Маленькое' },
-  { value: 'large', label: 'Большое' },
-];
-
+// Типы и пропсы
 interface ImagesGalleryProps {
   refreshTrigger?: number; // Props для обновления галереи извне
 }
 
+// Упрощенная версия компонента
 const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => {
+  // Основные состояния
   const [images, setImages] = useState<ImageData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Состояния для фильтрации и поиска
-  const [typeFilter, setTypeFilter] = useState<string | null>(null);
-  const [sectionFilter, setSectionFilter] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // Состояния для модалки редактирования
+  // Состояния для модальных окон
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [currentImage, setCurrentImage] = useState<ImageData | null>(null);
   const [editFormData, setEditFormData] = useState<ImageUpdateData>({});
   const [editLoading, setEditLoading] = useState(false);
   
-  // Состояния для модалки удаления
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   
-  // Состояния для модалки детального просмотра
   const [viewModalOpen, setViewModalOpen] = useState(false);
   
-  // Состояние для пагинации
-  const [activePage, setActivePage] = useState(1);
-  const itemsPerPage = 12;
+  // Загрузка изображений при монтировании и при изменении refreshTrigger
+  useEffect(() => {
+    fetchImagesList();
+  }, [refreshTrigger]);
   
-  // Получение списка изображений
+  // Функция для получения списка изображений
   const fetchImagesList = async () => {
     setLoading(true);
     setError(null);
     
     try {
       const data = await fetchImages();
-      setImages(data);
+      console.log('Полученные данные изображений:', data);
+      
+      // Безопасная установка данных
+      if (data && Array.isArray(data)) {
+        setImages(data);
+        console.log('Успешно установлены изображения:', data.length);
+      } else {
+        console.warn('API вернул неожиданный формат данных:', data);
+        setImages([]);
+      }
     } catch (err) {
-      console.error('Ошибка при получении списка изображений:', err);
-      setError('Не удалось загрузить список изображений. Пожалуйста, попробуйте снова.');
+      console.error('Ошибка при загрузке изображений:', err);
+      setError('Не удалось загрузить изображения. Пожалуйста, попробуйте позже.');
+      setImages([]);
     } finally {
       setLoading(false);
     }
   };
   
-  // Загружаем изображения при монтировании компонента и при изменении refreshTrigger
-  useEffect(() => {
-    fetchImagesList();
-  }, [refreshTrigger]);
-  
-  // Копирование URL изображения
+  // Копирование URL изображения в буфер обмена
   const copyImageUrl = (url: string) => {
-    navigator.clipboard.writeText(url).then(() => {
-      notifications.show({
-        title: 'Скопировано',
-        message: 'URL изображения скопирован в буфер обмена',
-        color: 'green',
+    navigator.clipboard.writeText(url)
+      .then(() => {
+        notifications.show({
+          title: 'Скопировано',
+          message: 'URL изображения скопирован в буфер обмена',
+          color: 'green',
+        });
+      })
+      .catch(err => {
+        console.error('Ошибка при копировании URL:', err);
       });
-    });
   };
   
   // Открытие модального окна редактирования
   const openEditModal = (image: ImageData) => {
+    if (!image) return;
+    
     setCurrentImage(image);
     setEditFormData({
-      alt: image.alt,
-      title: image.title,
       type: image.type,
+      title: image.title,
+      alt: image.alt,
       section: image.section,
       tags: image.tags,
       order: image.order,
@@ -151,17 +118,21 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
   
   // Открытие модального окна удаления
   const openDeleteModal = (image: ImageData) => {
+    if (!image) return;
+    
     setCurrentImage(image);
     setDeleteModalOpen(true);
   };
   
   // Открытие модального окна просмотра
   const openViewModal = (image: ImageData) => {
+    if (!image) return;
+    
     setCurrentImage(image);
     setViewModalOpen(true);
   };
   
-  // Обновление данных изображения
+  // Обработчик обновления изображения
   const handleUpdateImage = async () => {
     if (!currentImage) return;
     
@@ -170,24 +141,30 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
     try {
       const updatedImage = await updateImage(currentImage._id, editFormData);
       
-      // Обновляем список изображений
-      setImages(prevImages => 
-        prevImages.map(img => img._id === updatedImage._id ? updatedImage : img)
-      );
-      
-      notifications.show({
-        title: 'Успешно',
-        message: 'Данные изображения обновлены',
-        color: 'green',
-        icon: <IconCheck size={18} />,
-      });
-      
-      setEditModalOpen(false);
+      if (updatedImage) {
+        // Обновляем изображение в списке
+        setImages(prevImages => 
+          prevImages.map(img => 
+            img._id === updatedImage._id ? updatedImage : img
+          )
+        );
+        
+        setEditModalOpen(false);
+        
+        notifications.show({
+          title: 'Успешно',
+          message: 'Изображение обновлено',
+          color: 'green',
+          icon: <IconCheck size={18} />,
+        });
+      } else {
+        throw new Error('Не удалось обновить изображение: сервер вернул пустой ответ');
+      }
     } catch (err) {
       console.error('Ошибка при обновлении изображения:', err);
       notifications.show({
         title: 'Ошибка',
-        message: 'Не удалось обновить данные изображения',
+        message: 'Не удалось обновить изображение',
         color: 'red',
         icon: <IconAlertCircle size={18} />,
       });
@@ -196,7 +173,7 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
     }
   };
   
-  // Удаление изображения
+  // Обработчик удаления изображения
   const handleDeleteImage = async () => {
     if (!currentImage) return;
     
@@ -206,7 +183,11 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
       await deleteImage(currentImage._id);
       
       // Удаляем изображение из списка
-      setImages(prevImages => prevImages.filter(img => img._id !== currentImage._id));
+      setImages(prevImages => 
+        prevImages.filter(img => img._id !== currentImage._id)
+      );
+      
+      setDeleteModalOpen(false);
       
       notifications.show({
         title: 'Успешно',
@@ -214,8 +195,6 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
         color: 'green',
         icon: <IconCheck size={18} />,
       });
-      
-      setDeleteModalOpen(false);
     } catch (err) {
       console.error('Ошибка при удалении изображения:', err);
       notifications.show({
@@ -229,24 +208,30 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
     }
   };
   
-  // Быстрое переключение активности изображения
+  // Переключение статуса активности изображения
   const toggleImageActive = async (image: ImageData) => {
     try {
       const updatedImage = await updateImage(image._id, {
         isActive: !image.isActive
       });
       
-      // Обновляем список изображений
-      setImages(prevImages => 
-        prevImages.map(img => img._id === updatedImage._id ? updatedImage : img)
-      );
-      
-      notifications.show({
-        title: 'Успешно',
-        message: `Изображение ${updatedImage.isActive ? 'активировано' : 'деактивировано'}`,
-        color: 'green',
-        icon: <IconCheck size={18} />,
-      });
+      if (updatedImage) {
+        // Обновляем изображение в списке
+        setImages(prevImages => 
+          prevImages.map(img => 
+            img._id === updatedImage._id ? updatedImage : img
+          )
+        );
+        
+        notifications.show({
+          title: 'Успешно',
+          message: `Изображение ${updatedImage.isActive ? 'активировано' : 'деактивировано'}`,
+          color: 'green',
+          icon: <IconCheck size={18} />,
+        });
+      } else {
+        throw new Error('Не удалось обновить статус изображения: сервер вернул пустой ответ');
+      }
     } catch (err) {
       console.error('Ошибка при изменении статуса изображения:', err);
       notifications.show({
@@ -257,494 +242,248 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
       });
     }
   };
-  
-  // Фильтрация изображений
-  const filteredImages = images
-    .filter(image => {
-      // Фильтр по типу
-      if (typeFilter && image.type !== typeFilter) return false;
-      
-      // Фильтр по разделу
-      if (sectionFilter && image.section !== sectionFilter) return false;
-      
-      // Поиск по названию, alt-тексту и тегам
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        return (
-          image.title.toLowerCase().includes(query) ||
-          image.alt.toLowerCase().includes(query) ||
-          image.tags.some(tag => tag.toLowerCase().includes(query))
-        );
-      }
-      
-      return true;
-    })
-    .sort((a, b) => {
-      // Сортировка по порядку и дате создания
-      if (a.order !== b.order) {
-        return a.order - b.order;
-      }
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-  
-  // Пагинация
-  const paginatedImages = filteredImages.slice(
-    (activePage - 1) * itemsPerPage,
-    activePage * itemsPerPage
-  );
-  
-  // Обработчик сброса фильтров
-  const resetFilters = () => {
-    setTypeFilter(null);
-    setSectionFilter(null);
-    setSearchQuery('');
-  };
-  
-  return (
-    <Box pos="relative">
-      <LoadingOverlay visible={loading} />
-      
-      {error && (
-        <Alert 
-          icon={<IconAlertCircle size={16} />} 
-          title="Ошибка" 
-          color="red" 
-          mb="md"
-          withCloseButton
-          onClose={() => setError(null)}
-        >
-          {error}
-        </Alert>
-      )}
-      
-      <Box mb="md">
-        <Group position="apart">
-          <Title order={3}>Галерея изображений</Title>
-          <Button variant="outline" leftIcon={<IconRefresh size={16} />} onClick={fetchImagesList}>
-            Обновить
-          </Button>
-        </Group>
-        
-        <Text color="dimmed" size="sm" mb="md">
-          Всего изображений: {images.length} | Отображается: {filteredImages.length}
-        </Text>
-        
-        <Paper p="md" withBorder mb="md">
-          <Grid>
-            <Grid.Col span={4}>
-              <Select
-                label="Фильтр по типу"
-                placeholder="Все типы"
-                data={IMAGE_TYPES}
-                value={typeFilter}
-                onChange={setTypeFilter}
-                clearable
-                icon={<IconFilter size={16} />}
-              />
-            </Grid.Col>
-            
-            <Grid.Col span={4}>
-              <Select
-                label="Фильтр по разделу"
-                placeholder="Все разделы"
-                data={SECTIONS}
-                value={sectionFilter}
-                onChange={setSectionFilter}
-                clearable
-                icon={<IconFilter size={16} />}
-              />
-            </Grid.Col>
-            
-            <Grid.Col span={4}>
-              <TextInput
-                label="Поиск"
-                placeholder="Введите запрос..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.currentTarget.value)}
-                icon={<IconSearch size={16} />}
-                rightSection={
-                  searchQuery && (
-                    <ActionIcon size="sm" onClick={() => setSearchQuery('')}>
-                      <IconX size={16} />
-                    </ActionIcon>
-                  )
-                }
-              />
-            </Grid.Col>
-          </Grid>
-          
-          {(typeFilter || sectionFilter || searchQuery) && (
-            <Group position="right" mt="sm">
-              <Button 
-                variant="subtle" 
-                compact 
-                onClick={resetFilters}
+
+  // Рендер элемента сетки
+  const renderImageCard = (image: ImageData) => {
+    if (!image) return null;
+    
+    return (
+      <Card key={image._id} shadow="sm" padding="lg" radius="md" withBorder>
+        <Card.Section>
+          <Box pos="relative">
+            <Image
+              src={image.url}
+              alt={image.alt || image.title || 'Изображение'}
+              fit="cover"
+              height={200}
+            />
+            <Box
+              pos="absolute"
+              top={10}
+              right={10}
+              style={{ zIndex: 2 }}
+            >
+              <ActionIcon
+                color={image.isActive ? 'green' : 'red'}
+                variant="light"
+                onClick={() => toggleImageActive(image)}
+                title={image.isActive ? 'Деактивировать' : 'Активировать'}
               >
-                Сбросить фильтры
-              </Button>
-            </Group>
-          )}
-        </Paper>
-      </Box>
-      
-      {!loading && filteredImages.length === 0 ? (
-        <Box ta="center" py="xl">
-          <Text size="lg" weight={500} color="dimmed">
-            Изображения не найдены
-          </Text>
-          <Text size="sm" color="dimmed" mt="xs">
-            Попробуйте изменить параметры фильтрации или загрузить новые изображения.
+                {image.isActive ? <IconEye size={16} /> : <IconEyeOff size={16} />}
+              </ActionIcon>
+            </Box>
+          </Box>
+        </Card.Section>
+
+        <Box mt="md" mb="xs">
+          <Text fw={500}>{image.title || 'Без названия'}</Text>
+          <Group mt={5}>
+            {image.type && (
+              <Badge color="blue" variant="light">
+                {image.type}
+              </Badge>
+            )}
+            {image.section && (
+              <Badge color="teal" variant="light">
+                {image.section}
+              </Badge>
+            )}
+          </Group>
+          <Text size="sm" c="dimmed" mt={5} lineClamp={2}>
+            {image.alt || 'Нет описания'}
           </Text>
         </Box>
-      ) : (
-        <>
+
+        <Group mt="md">
+          <Button 
+            variant="outline" 
+            size="xs" 
+            onClick={() => openViewModal(image)} 
+            leftSection={<IconEye size={14} />}
+          >
+            Просмотр
+          </Button>
+          <Button 
+            variant="outline" 
+            size="xs" 
+            onClick={() => openEditModal(image)} 
+            leftSection={<IconPencil size={14} />}
+          >
+            Изменить
+          </Button>
+          <Button 
+            color="red" 
+            variant="outline" 
+            size="xs" 
+            onClick={() => openDeleteModal(image)} 
+            leftSection={<IconTrash size={14} />}
+          >
+            Удалить
+          </Button>
+        </Group>
+      </Card>
+    );
+  };
+
+  return (
+    <Box>
+      <Group justify="space-between" mb="md">
+        <Title order={2}>Управление изображениями</Title>
+        <Button 
+          variant="outline" 
+          onClick={fetchImagesList} 
+          leftSection={<IconRefresh size={14} />}
+          loading={loading}
+        >
+          Обновить
+        </Button>
+      </Group>
+
+      {/* Основное содержимое */}
+      <Paper shadow="xs" p="md" withBorder>
+        <LoadingOverlay visible={loading} />
+
+        {error && (
+          <Alert color="red" title="Ошибка" withCloseButton={false} mb="md">
+            {error}
+          </Alert>
+        )}
+
+        {!loading && images.length === 0 && !error && (
+          <Alert color="blue" title="Информация" withCloseButton={false} mb="md">
+            Изображения не найдены. Загрузите первое изображение, используя форму выше.
+          </Alert>
+        )}
+
+        {!loading && images.length > 0 && (
           <Grid>
-            {paginatedImages.map((image) => (
-              <Grid.Col key={image._id} xs={12} sm={6} md={4} lg={3}>
-                <Card shadow="sm" p="xs" radius="md" withBorder>
-                  <Card.Section>
-                    <Box pos="relative">
-                      <Image
-                        src={image.secure_url}
-                        height={160}
-                        fit="cover"
-                        withPlaceholder
-                        styles={{ image: { cursor: 'pointer' } }}
-                        onClick={() => openViewModal(image)}
-                      />
-                      
-                      <Group position="apart" spacing={0} style={{ position: 'absolute', top: 5, width: '100%', padding: '0 5px' }}>
-                        <Badge size="sm" color={image.isActive ? 'green' : 'gray'}>
-                          {image.isActive ? 'Активно' : 'Отключено'}
-                        </Badge>
-                        
-                        <Menu position="bottom-end" shadow="md">
-                          <Menu.Target>
-                            <ActionIcon variant="light">
-                              <IconDotsVertical size={16} />
-                            </ActionIcon>
-                          </Menu.Target>
-                          
-                          <Menu.Dropdown>
-                            <Menu.Item 
-                              icon={<IconEye size={16} />} 
-                              onClick={() => openViewModal(image)}
-                            >
-                              Просмотр
-                            </Menu.Item>
-                            <Menu.Item 
-                              icon={<IconPencil size={16} />} 
-                              onClick={() => openEditModal(image)}
-                            >
-                              Редактировать
-                            </Menu.Item>
-                            <Menu.Item 
-                              icon={<IconCopy size={16} />} 
-                              onClick={() => copyImageUrl(image.secure_url)}
-                            >
-                              Копировать URL
-                            </Menu.Item>
-                            <Menu.Item 
-                              icon={image.isActive ? <IconEyeOff size={16} /> : <IconEye size={16} />} 
-                              onClick={() => toggleImageActive(image)}
-                            >
-                              {image.isActive ? 'Деактивировать' : 'Активировать'}
-                            </Menu.Item>
-                            <Menu.Divider />
-                            <Menu.Item 
-                              color="red" 
-                              icon={<IconTrash size={16} />} 
-                              onClick={() => openDeleteModal(image)}
-                            >
-                              Удалить
-                            </Menu.Item>
-                          </Menu.Dropdown>
-                        </Menu>
-                      </Group>
-                    </Box>
-                  </Card.Section>
-                  
-                  <Box mt="xs">
-                    <Text weight={500} lineClamp={1}>
-                      {image.title || 'Без названия'}
-                    </Text>
-                    
-                    <Text size="xs" color="dimmed" lineClamp={1}>
-                      {image.alt || 'Без описания'}
-                    </Text>
-                    
-                    <Flex gap="xs" mt="xs" wrap="wrap">
-                      {image.type && (
-                        <Badge size="xs" variant="light">
-                          {IMAGE_TYPES.find(t => t.value === image.type)?.label || image.type}
-                        </Badge>
-                      )}
-                      
-                      {image.section && (
-                        <Badge size="xs" variant="light">
-                          {SECTIONS.find(s => s.value === image.section)?.label || image.section}
-                        </Badge>
-                      )}
-                    </Flex>
-                    
-                    <Text size="xs" color="dimmed" mt="xs">
-                      {image.width}×{image.height} • {image.format.toUpperCase()}
-                    </Text>
-                  </Box>
-                </Card>
+            {images.map(image => (
+              <Grid.Col key={image._id} span={{ base: 12, sm: 6, md: 4, lg: 3 }}>
+                {renderImageCard(image)}
               </Grid.Col>
             ))}
           </Grid>
-          
-          {filteredImages.length > itemsPerPage && (
-            <Flex justify="center" mt="lg">
-              <Pagination 
-                total={Math.ceil(filteredImages.length / itemsPerPage)} 
-                page={activePage} 
-                onChange={setActivePage} 
-              />
-            </Flex>
-          )}
-        </>
-      )}
-      
-      {/* Модальное окно для редактирования */}
-      <Modal
-        opened={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        title="Редактирование изображения"
-        size="lg"
-      >
+        )}
+      </Paper>
+
+      {/* Модальное окно просмотра */}
+      <Modal opened={viewModalOpen} onClose={() => setViewModalOpen(false)} size="lg" title="Просмотр изображения">
         {currentImage && (
-          <Box pos="relative">
-            <LoadingOverlay visible={editLoading} />
-            
-            <Grid>
-              <Grid.Col span={4}>
-                <Image
-                  src={currentImage.secure_url}
-                  radius="md"
-                  withPlaceholder
-                  caption={`${currentImage.width}×${currentImage.height} • ${currentImage.format.toUpperCase()}`}
-                />
-              </Grid.Col>
-              
-              <Grid.Col span={8}>
-                <TextInput
-                  label="Заголовок"
-                  placeholder="Введите заголовок"
-                  value={editFormData.title || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
-                  mb="sm"
-                />
-                
-                <Textarea
-                  label="Alt текст (для SEO)"
-                  placeholder="Введите альтернативный текст"
-                  value={editFormData.alt || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, alt: e.target.value })}
-                  mb="sm"
-                  autosize
-                  minRows={2}
-                  maxRows={4}
-                />
-                
-                <Select
-                  label="Тип изображения"
-                  placeholder="Выберите тип"
-                  data={IMAGE_TYPES}
-                  value={editFormData.type || ''}
-                  onChange={(value) => setEditFormData({ ...editFormData, type: value || undefined })}
-                  clearable
-                  mb="sm"
-                />
-                
-                <Select
-                  label="Раздел сайта"
-                  placeholder="Выберите раздел"
-                  data={SECTIONS}
-                  value={editFormData.section || ''}
-                  onChange={(value) => setEditFormData({ ...editFormData, section: value || undefined })}
-                  clearable
-                  mb="sm"
-                />
-                
-                <MultiSelect
-                  label="Теги"
-                  placeholder="Выберите теги"
-                  data={AVAILABLE_TAGS}
-                  value={editFormData.tags || []}
-                  onChange={(value) => setEditFormData({ ...editFormData, tags: value })}
-                  searchable
-                  clearable
-                  mb="sm"
-                />
-                
-                <Group grow mb="sm">
-                  <TextInput
-                    label="Порядок отображения"
-                    placeholder="0"
-                    type="number"
-                    value={editFormData.order?.toString() || ''}
-                    onChange={(e) => setEditFormData({ 
-                      ...editFormData, 
-                      order: e.target.value ? parseInt(e.target.value) : undefined 
-                    })}
-                  />
-                  
-                  <Switch
-                    label="Активно"
-                    checked={editFormData.isActive === undefined ? true : editFormData.isActive}
-                    onChange={(e) => setEditFormData({ 
-                      ...editFormData, 
-                      isActive: e.currentTarget.checked 
-                    })}
-                    mt="lg"
-                  />
-                </Group>
-              </Grid.Col>
-            </Grid>
-            
-            <Group position="right" mt="lg">
-              <Button variant="default" onClick={() => setEditModalOpen(false)}>
-                Отмена
-              </Button>
-              <Button color="blue" onClick={handleUpdateImage}>
-                Сохранить
+          <Stack>
+            <Image
+              src={currentImage.url}
+              alt={currentImage.alt || currentImage.title || 'Изображение'}
+              fit="contain"
+              height={400}
+            />
+            <Group justify="space-between">
+              <Text fw={500}>{currentImage.title || 'Без названия'}</Text>
+              <Button 
+                variant="outline" 
+                size="xs" 
+                onClick={() => copyImageUrl(currentImage.url)} 
+                leftSection={<IconCopy size={14} />}
+              >
+                Копировать URL
               </Button>
             </Group>
-          </Box>
+            <Text size="sm">{currentImage.alt || 'Нет описания'}</Text>
+            <Group>
+              {currentImage.type && (
+                <Badge color="blue" variant="light">
+                  Тип: {currentImage.type}
+                </Badge>
+              )}
+              {currentImage.section && (
+                <Badge color="teal" variant="light">
+                  Раздел: {currentImage.section}
+                </Badge>
+              )}
+              {Array.isArray(currentImage.tags) && currentImage.tags.length > 0 && (
+                <Badge color="grape" variant="light">
+                  Теги: {currentImage.tags.join(', ')}
+                </Badge>
+              )}
+            </Group>
+            <Group>
+              <Text size="xs">Размеры: {currentImage.width}x{currentImage.height}</Text>
+              <Text size="xs">Формат: {currentImage.format}</Text>
+              <Text size="xs">Создано: {new Date(currentImage.createdAt).toLocaleString()}</Text>
+            </Group>
+          </Stack>
         )}
       </Modal>
-      
-      {/* Модальное окно для удаления */}
-      <Modal
-        opened={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        title="Удаление изображения"
-        size="sm"
-      >
-        <Box pos="relative">
-          <LoadingOverlay visible={deleteLoading} />
-          
-          <Text>
-            Вы действительно хотите удалить это изображение? Данное действие нельзя отменить.
-          </Text>
-          
-          {currentImage && (
-            <Image
-              src={currentImage.secure_url}
-              height={150}
-              fit="contain"
-              withPlaceholder
-              mt="md"
-              mb="md"
-              style={{ maxWidth: '100%' }}
-            />
-          )}
-          
-          <Group position="right" mt="lg">
-            <Button variant="default" onClick={() => setDeleteModalOpen(false)}>
-              Отмена
-            </Button>
-            <Button color="red" onClick={handleDeleteImage}>
-              Удалить
-            </Button>
-          </Group>
-        </Box>
-      </Modal>
-      
-      {/* Модальное окно для просмотра */}
-      <Modal
-        opened={viewModalOpen}
-        onClose={() => setViewModalOpen(false)}
-        title={currentImage?.title || 'Просмотр изображения'}
-        size="lg"
-      >
+
+      {/* Модальное окно редактирования */}
+      <Modal opened={editModalOpen} onClose={() => setEditModalOpen(false)} title="Редактирование изображения">
         {currentImage && (
-          <>
+          <Stack>
             <Image
-              src={currentImage.secure_url}
-              radius="md"
-              withPlaceholder
-              my="md"
-              style={{ maxWidth: '100%' }}
+              src={currentImage.url}
+              alt={currentImage.alt || currentImage.title || 'Изображение'}
+              fit="contain"
+              height={200}
             />
             
-            <Grid>
-              <Grid.Col span={6}>
-                <Text size="sm" weight={500}>Alt текст:</Text>
-                <Text size="sm" mb="xs">{currentImage.alt || '—'}</Text>
-                
-                <Text size="sm" weight={500}>Тип:</Text>
-                <Text size="sm" mb="xs">
-                  {IMAGE_TYPES.find(t => t.value === currentImage.type)?.label || currentImage.type || '—'}
-                </Text>
-                
-                <Text size="sm" weight={500}>Раздел:</Text>
-                <Text size="sm" mb="xs">
-                  {SECTIONS.find(s => s.value === currentImage.section)?.label || currentImage.section || '—'}
-                </Text>
-              </Grid.Col>
-              
-              <Grid.Col span={6}>
-                <Text size="sm" weight={500}>Размер:</Text>
-                <Text size="sm" mb="xs">{currentImage.width}×{currentImage.height} ({currentImage.format.toUpperCase()})</Text>
-                
-                <Text size="sm" weight={500}>Статус:</Text>
-                <Text size="sm" mb="xs">
-                  <Badge size="sm" color={currentImage.isActive ? 'green' : 'gray'}>
-                    {currentImage.isActive ? 'Активно' : 'Отключено'}
-                  </Badge>
-                </Text>
-                
-                <Text size="sm" weight={500}>Теги:</Text>
-                <Group spacing="xs" mb="xs">
-                  {currentImage.tags.length > 0 ? (
-                    currentImage.tags.map((tag, index) => (
-                      <Badge key={index} size="xs">{tag}</Badge>
-                    ))
-                  ) : (
-                    <Text size="sm">—</Text>
-                  )}
-                </Group>
-              </Grid.Col>
-            </Grid>
+            <TextInput
+              label="Заголовок"
+              value={editFormData.title || ''}
+              onChange={(e) => setEditFormData({...editFormData, title: e.target.value})}
+            />
             
-            <Group position="apart" mt="lg">
-              <Group>
-                <Button 
-                  variant="light" 
-                  leftIcon={<IconCopy size={16} />} 
-                  onClick={() => copyImageUrl(currentImage.secure_url)}
-                >
-                  Копировать URL
-                </Button>
-                
-                <Button
-                  component="a"
-                  href={currentImage.secure_url}
-                  target="_blank"
-                  variant="light"
-                  leftIcon={<IconDownload size={16} />}
-                  download
-                >
-                  Скачать
-                </Button>
-              </Group>
-              
-              <Button 
-                color="blue" 
-                leftIcon={<IconPencil size={16} />} 
-                onClick={() => {
-                  setViewModalOpen(false);
-                  openEditModal(currentImage);
-                }}
-              >
-                Редактировать
-              </Button>
+            <TextInput
+              label="Alt текст (для SEO)"
+              value={editFormData.alt || ''}
+              onChange={(e) => setEditFormData({...editFormData, alt: e.target.value})}
+            />
+            
+            <TextInput
+              label="Тип"
+              value={editFormData.type || ''}
+              onChange={(e) => setEditFormData({...editFormData, type: e.target.value})}
+            />
+            
+            <TextInput
+              label="Раздел"
+              value={editFormData.section || ''}
+              onChange={(e) => setEditFormData({...editFormData, section: e.target.value})}
+            />
+            
+            <TextInput
+              label="Теги (через запятую)"
+              value={Array.isArray(editFormData.tags) ? editFormData.tags.join(', ') : ''}
+              onChange={(e) => setEditFormData({
+                ...editFormData, 
+                tags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag)
+              })}
+            />
+            
+            <Switch
+              label="Активно"
+              checked={editFormData.isActive}
+              onChange={(e) => setEditFormData({...editFormData, isActive: e.currentTarget.checked})}
+            />
+            
+            <Group justify="flex-end" mt="md">
+              <Button variant="outline" onClick={() => setEditModalOpen(false)}>Отмена</Button>
+              <Button onClick={handleUpdateImage} loading={editLoading}>Сохранить</Button>
             </Group>
-          </>
+          </Stack>
+        )}
+      </Modal>
+
+      {/* Модальное окно удаления */}
+      <Modal opened={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} title="Удаление изображения">
+        {currentImage && (
+          <Stack>
+            <Text>Вы уверены, что хотите удалить изображение "{currentImage.title || 'Без названия'}"?</Text>
+            <Text size="sm" c="dimmed">Это действие нельзя отменить.</Text>
+            
+            <Group justify="flex-end" mt="md">
+              <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>Отмена</Button>
+              <Button color="red" onClick={handleDeleteImage} loading={deleteLoading}>Удалить</Button>
+            </Group>
+          </Stack>
         )}
       </Modal>
     </Box>

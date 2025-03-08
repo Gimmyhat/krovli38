@@ -12,44 +12,34 @@ import {
   Flex,
   Image,
   Tooltip,
-  Badge,
   Card,
   Alert,
-  LoadingOverlay
+  LoadingOverlay,
+  Paper,
+  Title,
+  Divider,
+  Accordion,
+  Grid,
+  ActionIcon
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconUpload, IconPhoto, IconTrash, IconAlertCircle, IconCheck } from '@tabler/icons-react';
+import { 
+  IconUpload, 
+  IconTrash, 
+  IconAlertCircle, 
+  IconCheck, 
+  IconInfoCircle,
+  IconPhotoPlus
+} from '@tabler/icons-react';
 import { uploadSingleImage, uploadMultipleImages } from '../../api/imageApi';
+import { 
+  FLAT_IMAGE_TYPES, 
+  GROUPED_SECTIONS, 
+  GROUPED_TAGS, 
+  getTypeInfo
+} from '../../constants/imageCategories';
 
-// Типы изображений для выбора
-const IMAGE_TYPES = [
-  { value: 'banner', label: 'Баннер' },
-  { value: 'gallery', label: 'Галерея' },
-  { value: 'product', label: 'Продукт' },
-  { value: 'category', label: 'Категория' },
-  { value: 'icon', label: 'Иконка' },
-  { value: 'logo', label: 'Логотип' },
-];
-
-// Разделы сайта для выбора
-const SECTIONS = [
-  { value: 'home', label: 'Главная' },
-  { value: 'catalog', label: 'Каталог' },
-  { value: 'portfolio', label: 'Портфолио' },
-  { value: 'about', label: 'О нас' },
-  { value: 'contacts', label: 'Контакты' },
-];
-
-// Доступные теги
-const AVAILABLE_TAGS = [
-  { value: 'featured', label: 'Главное' },
-  { value: 'new', label: 'Новое' },
-  { value: 'promo', label: 'Промо' },
-  { value: 'background', label: 'Фон' },
-  { value: 'small', label: 'Маленькое' },
-  { value: 'large', label: 'Большое' },
-];
-
+// Интерфейс для предварительного просмотра изображения
 interface ImagePreview {
   file: File;
   preview: string;
@@ -57,22 +47,31 @@ interface ImagePreview {
   title: string;
 }
 
+// Свойства компонента загрузки изображений
 interface ImageUploaderProps {
   onUploadSuccess: () => void;
   multipleMode?: boolean;
+  initialType?: string | null;
+  initialSection?: string | null;
 }
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({ 
   onUploadSuccess, 
-  multipleMode = false 
+  multipleMode = false,
+  initialType = null,
+  initialSection = null
 }) => {
   const [files, setFiles] = useState<ImagePreview[]>([]);
-  const [type, setType] = useState<string | null>(null);
-  const [section, setSection] = useState<string | null>(null);
+  const [type, setType] = useState<string | null>(initialType);
+  const [section, setSection] = useState<string | null>(initialSection);
   const [tags, setTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Информация о выбранном типе и разделе
+  const typeInfo = type ? getTypeInfo(type) : null;
 
+  // Обработчик дропа файлов
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setError(null);
     
@@ -81,7 +80,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
       file,
       preview: URL.createObjectURL(file),
       alt: '',
-      title: file.name.split('.')[0], // Имя файла без расширения как заголовок по умолчанию
+      title: file.name.split('.')[0].replace(/[-_]/g, ' '), // Имя файла без расширения как заголовок по умолчанию
     }));
     
     if (multipleMode) {
@@ -92,55 +91,55 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     }
   }, [multipleMode]);
 
+  // Настройка Dropzone
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
     },
     multiple: multipleMode,
-    maxSize: 5 * 1024 * 1024, // 5MB макс размер
-    onDropRejected: (rejections) => {
-      const errors = rejections.map(rejection => 
-        `${rejection.file.name}: ${rejection.errors.map(e => e.message).join(', ')}`
-      );
-      setError(`Ошибка при загрузке: ${errors.join(' | ')}`);
-    }
   });
 
+  // Удаление файла из предпросмотра
   const removeFile = (index: number) => {
-    const updatedFiles = [...files];
-    URL.revokeObjectURL(updatedFiles[index].preview);
-    updatedFiles.splice(index, 1);
-    setFiles(updatedFiles);
+    const newFiles = [...files];
+    
+    // Освобождаем URL объекта для предотвращения утечек памяти
+    URL.revokeObjectURL(newFiles[index].preview);
+    
+    newFiles.splice(index, 1);
+    setFiles(newFiles);
   };
 
+  // Обновление метаданных файла
   const updateFileMetadata = (index: number, field: 'alt' | 'title', value: string) => {
-    const updatedFiles = [...files];
-    updatedFiles[index] = { ...updatedFiles[index], [field]: value };
-    setFiles(updatedFiles);
+    const newFiles = [...files];
+    newFiles[index][field] = value;
+    setFiles(newFiles);
   };
-
+  
+  // Загрузка изображений на сервер
   const handleUpload = async () => {
     if (files.length === 0) {
-      setError('Пожалуйста, выберите изображения для загрузки');
+      setError('Добавьте хотя бы одно изображение для загрузки');
       return;
     }
-
+    
     if (!type) {
-      setError('Пожалуйста, укажите тип изображения');
+      setError('Выберите тип изображения');
       return;
     }
-
+    
     setLoading(true);
     setError(null);
-
+    
     try {
-      if (multipleMode && files.length > 1) {
-        // Загрузка нескольких файлов
+      if (multipleMode) {
+        // Режим множественной загрузки
         await uploadMultipleImages(
-          files.map(f => f.file), 
+          files.map(f => f.file),
           { 
-            type: type || undefined, 
+            type, 
             section: section || undefined, 
             tags 
           }
@@ -153,13 +152,13 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
           icon: <IconCheck size={18} />,
         });
       } else {
-        // Загрузка одного файла
+        // Режим загрузки одного изображения
         const file = files[0];
         await uploadSingleImage(
           file.file,
           {
-            type: type || undefined,
-            alt: file.alt,
+            type,
+            alt: file.alt || file.title, // Если alt не указан, используем title
             title: file.title,
             section: section || undefined,
             tags
@@ -168,44 +167,39 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         
         notifications.show({
           title: 'Успешно',
-          message: 'Изображение загружено',
+          message: 'Изображение успешно загружено',
           color: 'green',
           icon: <IconCheck size={18} />,
         });
       }
       
-      // Очищаем все поля после успешной загрузки
-      setFiles([]);
-      setType(null);
-      setSection(null);
-      setTags([]);
+      // Очищаем форму после успешной загрузки
+      clearAll();
       
-      // Уведомляем родительский компонент об успешной загрузке
+      // Вызываем колбэк для обновления родительского компонента
       onUploadSuccess();
     } catch (err) {
-      console.error('Ошибка при загрузке:', err);
-      setError('Произошла ошибка при загрузке изображений. Пожалуйста, попробуйте снова.');
-      
-      notifications.show({
-        title: 'Ошибка',
-        message: 'Не удалось загрузить изображения',
-        color: 'red',
-        icon: <IconAlertCircle size={18} />,
-      });
+      console.error('Ошибка загрузки:', err);
+      setError('Ошибка при загрузке изображения. Повторите попытку позже.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Очистка формы
   const clearAll = () => {
+    // Освобождаем URL объектов
     files.forEach(file => URL.revokeObjectURL(file.preview));
+    
     setFiles([]);
-    setError(null);
+    // Не сбрасываем тип и раздел, так как они могут использоваться для последующих загрузок
   };
 
   return (
-    <Box pos="relative">
-      <LoadingOverlay visible={loading} overlayBlur={2} />
+    <Paper withBorder p="md" radius="md">
+      <LoadingOverlay visible={loading} />
+      
+      <Title order={3} mb="md">Загрузка изображений</Title>
       
       {error && (
         <Alert 
@@ -220,163 +214,181 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         </Alert>
       )}
       
-      <Box
-        {...getRootProps()}
+      <Box {...getRootProps()} 
         style={{
-          border: '2px dashed var(--mantine-color-blue-6)',
+          border: '2px dashed',
+          borderColor: isDragActive ? '#4dabf7' : '#ced4da',
           borderRadius: '8px',
           padding: '20px',
-          textAlign: 'center',
+          backgroundColor: isDragActive ? '#e7f5ff' : '#f8f9fa',
           cursor: 'pointer',
-          backgroundColor: isDragActive ? 'var(--mantine-color-blue-0)' : 'transparent',
+          transition: 'all 200ms ease',
         }}
+        mb="md"
       >
         <input {...getInputProps()} />
         
-        <Stack align="center" spacing="xs">
-          <IconUpload size={32} stroke={1.5} color="var(--mantine-color-blue-6)" />
+        <Flex direction="column" align="center" justify="center">
+          <IconPhotoPlus size={48} style={{ marginBottom: 16, opacity: 0.7 }} />
           
-          {isDragActive ? (
-            <Text size="sm">Перетащите файлы сюда...</Text>
-          ) : (
-            <>
-              <Text size="sm" fw={500}>
-                {multipleMode ? 'Перетащите изображения или нажмите для выбора' : 'Перетащите изображение или нажмите для выбора'}
-              </Text>
-              <Text size="xs" c="dimmed">
-                Поддерживаемые форматы: JPEG, PNG, GIF, WebP. Максимальный размер: 5МБ
-              </Text>
-            </>
-          )}
-        </Stack>
+          <Text size="xl" ta="center" mb={6}>
+            {isDragActive
+              ? 'Перетащите изображения сюда'
+              : 'Перетащите изображения сюда или нажмите для выбора'}
+          </Text>
+          
+          <Text c="dimmed" size="sm" ta="center">
+            {multipleMode 
+              ? 'Загрузите несколько изображений одновременно' 
+              : 'Загрузите одно изображение'}
+          </Text>
+          
+          <Text c="dimmed" size="xs" ta="center" mt={6}>
+            Поддерживаются форматы JPG, PNG, GIF, WEBP
+          </Text>
+        </Flex>
       </Box>
       
-      {files.length > 0 && (
-        <Box mt="md">
-          <Flex justify="space-between" align="center" mb="sm">
-            <Text fw={500}>Предпросмотр</Text>
-            <Button 
-              variant="subtle" 
-              color="red" 
-              leftIcon={<IconTrash size={16} />} 
-              onClick={clearAll}
-              size="xs"
-            >
-              Очистить всё
-            </Button>
-          </Flex>
-          
-          <Box 
-            sx={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-              gap: '16px' 
-            }}
-          >
-            {files.map((file, index) => (
-              <Card key={index} padding="xs" withBorder>
-                <Card.Section>
-                  <Box pos="relative">
-                    <Image
-                      src={file.preview}
-                      height={150}
-                      fit="contain"
-                      withPlaceholder
-                      placeholder={<IconPhoto size={40} opacity={0.5} />}
-                      style={{ backgroundColor: '#f8f9fa' }}
-                    />
-                    <Box 
-                      pos="absolute" 
-                      top={5} 
-                      right={5}
-                      style={{ backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: '50%' }}
-                    >
-                      <Tooltip label="Удалить">
-                        <Button 
-                          onClick={() => removeFile(index)} 
-                          size="xs" 
-                          color="red" 
-                          variant="subtle" 
-                          p={4}
-                          style={{ width: '24px', height: '24px', minWidth: 'auto' }}
-                        >
-                          <IconTrash size={14} />
-                        </Button>
-                      </Tooltip>
-                    </Box>
-                  </Box>
-                </Card.Section>
-                
-                <Stack spacing="xs" mt="xs">
-                  <TextInput
-                    size="xs"
-                    label="Заголовок"
-                    value={file.title}
-                    onChange={(e) => updateFileMetadata(index, 'title', e.target.value)}
-                  />
-                  
-                  <TextInput
-                    size="xs"
-                    label="Alt текст"
-                    value={file.alt}
-                    onChange={(e) => updateFileMetadata(index, 'alt', e.target.value)}
-                  />
-                  
-                  <Text size="xs">
-                    <Badge size="xs">{(file.file.size / 1024).toFixed(0)} KB</Badge>
-                  </Text>
-                </Stack>
-              </Card>
-            ))}
-          </Box>
-        </Box>
-      )}
-      
-      <Box mt="lg">
-        <Group grow mb="md">
+      <Grid>
+        <Grid.Col span={{ base: 12, md: 6 }}>
           <Select
             label="Тип изображения"
+            description="Выберите, к какой категории относится изображение"
             placeholder="Выберите тип"
-            data={IMAGE_TYPES}
+            data={FLAT_IMAGE_TYPES}
             value={type}
             onChange={setType}
-            searchable
-            clearable
             required
+            clearable
+            searchable
+            mb="sm"
           />
+          
+          {typeInfo && (
+            <Alert icon={<IconInfoCircle size={16} />} color="blue" mb="md" variant="light">
+              {typeInfo.description}
+            </Alert>
+          )}
           
           <Select
             label="Раздел сайта"
+            description="Выберите, в каком разделе будет использоваться изображение"
             placeholder="Выберите раздел"
-            data={SECTIONS}
+            data={GROUPED_SECTIONS}
             value={section}
             onChange={setSection}
-            searchable
             clearable
+            searchable
+            mb="sm"
           />
-        </Group>
+          
+          <MultiSelect
+            label="Теги"
+            description="Добавьте теги для удобного поиска и фильтрации"
+            placeholder="Выберите теги"
+            data={GROUPED_TAGS}
+            value={tags}
+            onChange={setTags}
+            clearable
+            searchable
+            mb="md"
+          />
+        </Grid.Col>
         
-        <MultiSelect
-          label="Теги"
-          placeholder="Выберите теги"
-          data={AVAILABLE_TAGS}
-          value={tags}
-          onChange={setTags}
-          searchable
-          clearable
-          mb="md"
-        />
+        <Grid.Col span={{ base: 12, md: 6 }}>
+          {files.length > 0 && (
+            <Stack>
+              <Text fw={500} size="sm" mb={4}>Предпросмотр ({files.length})</Text>
+              
+              {files.map((file, index) => (
+                <Card key={index} p="xs" withBorder>
+                  <Flex gap="md">
+                    <Image
+                      src={file.preview}
+                      width={80}
+                      height={80}
+                      fit="contain"
+                      alt={file.title}
+                    />
+                    
+                    <Box style={{ flex: 1 }}>
+                      <TextInput
+                        label="Заголовок"
+                        placeholder="Введите заголовок"
+                        value={file.title}
+                        onChange={(e) => updateFileMetadata(index, 'title', e.target.value)}
+                        size="xs"
+                        mb="xs"
+                      />
+                      
+                      <TextInput
+                        label="Альтернативный текст (для SEO)"
+                        placeholder="Опишите содержимое изображения"
+                        value={file.alt}
+                        onChange={(e) => updateFileMetadata(index, 'alt', e.target.value)}
+                        size="xs"
+                      />
+                    </Box>
+                    
+                    <Tooltip label="Удалить">
+                      <ActionIcon 
+                        color="red" 
+                        onClick={() => removeFile(index)}
+                        mt={8}
+                      >
+                        <IconTrash size={18} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Flex>
+                </Card>
+              ))}
+            </Stack>
+          )}
+        </Grid.Col>
+      </Grid>
+      
+      <Divider my="md" />
+      
+      <Group justify="space-between">
+        <Button 
+          variant="outline" 
+          onClick={clearAll} 
+          disabled={files.length === 0}
+        >
+          Очистить
+        </Button>
         
         <Button 
           onClick={handleUpload} 
-          leftIcon={<IconUpload size={16} />} 
-          disabled={files.length === 0 || !type} 
-          fullWidth
+          leftSection={<IconUpload size={18} />}
+          disabled={files.length === 0 || !type}
         >
-          {multipleMode ? 'Загрузить все изображения' : 'Загрузить изображение'}
+          Загрузить {multipleMode && files.length > 0 ? `(${files.length})` : 'изображение'}
         </Button>
-      </Box>
-    </Box>
+      </Group>
+      
+      <Accordion mt="md">
+        <Accordion.Item value="usage-help">
+          <Accordion.Control>Справка по использованию</Accordion.Control>
+          <Accordion.Panel>
+            <Text size="sm" mb="xs">
+              <strong>Тип изображения</strong> определяет, как изображение будет использоваться на сайте.
+              Например, баннеры для слайдера, фотографии для галереи работ и т.д.
+            </Text>
+            
+            <Text size="sm" mb="xs">
+              <strong>Раздел сайта</strong> указывает на конкретное место на сайте, где будет отображаться изображение.
+              Например, "Главная - Баннер" или "Услуги - Ремонт кровли".
+            </Text>
+            
+            <Text size="sm">
+              <strong>Теги</strong> добавляют дополнительную информацию для классификации и позволяют легче найти нужные изображения.
+              Например, "Зима", "Большое", "Горизонтальное".
+            </Text>
+          </Accordion.Panel>
+        </Accordion.Item>
+      </Accordion>
+    </Paper>
   );
 };
 

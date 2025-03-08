@@ -1,0 +1,53 @@
+# Общие исключения для всех контекстов
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.git/
+.github/
+.vscode/
+.idea/
+*.md
+!README.md
+.DS_Store
+.gitignore
+.dockerignore
+Dockerfile*
+docker/
+scripts/
+*.log
+*.tar.gz
+*.zip
+*.tgz
+
+# Исключения для сборки
+/build/
+/dist/
+/logs/
+/coverage/
+
+# Исключения для разработки
+.env.*
+!.env.example
+.env
+docker-compose*.yml
+
+# Кэши и временные файлы
+.npm/
+.eslintcache
+.cache/
+tmp/
+temp/
+
+# Уникальные настройки для каждого компонента перенесены в их собственные .dockerignore файлы
+# Это общий файл для глобальных настроек
+
+# Исключение для разных компонентов при сборке определенного образа
+# (эти исключения могут переопределяться в контексте сборки)
+admin-panel/node_modules/
+admin-panel/dist/
+admin-panel/build/
+server/node_modules/
+server/dist/
+server/build/
+server/logs/ 

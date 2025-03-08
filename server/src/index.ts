@@ -8,6 +8,8 @@ import requestRoutes from './routes/requests';
 import logsRoutes from './routes/logs';
 // @ts-ignore - временная заглушка для экспериментальных маршрутов изображений
 import imageRoutes from './routes/imageRoutes';
+// @ts-ignore - маршруты для работы с Cloudinary
+import cloudinaryRoutes from './routes/cloudinaryRoutes';
 import { initializeAdmin } from './scripts/init';
 
 // Загрузка переменных окружения
@@ -53,6 +55,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/logs', logsRoutes);
 app.use('/api/images', imageRoutes);
+app.use('/api/cloudinary', cloudinaryRoutes);
 
 // Базовый маршрут API
 app.get('/api', (req, res) => {
@@ -62,7 +65,8 @@ app.get('/api', (req, res) => {
       '/api/auth',
       '/api/requests',
       '/api/logs',
-      '/api/images'
+      '/api/images',
+      '/api/cloudinary'
     ]
   });
 });

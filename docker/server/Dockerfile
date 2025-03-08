@@ -2,31 +2,48 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dependencies
+# Установка только production-зависимостей для запуска
 COPY server/package*.json ./
+RUN npm ci --only=production && \
+    npm cache clean --force
 
-# Install ALL dependencies including devDependencies
-ENV NODE_ENV=development
-RUN npm install
+# Создание слоя только для разработки и сборки
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY server/package*.json ./
+RUN npm ci && \
+    npm cache clean --force
 
-# Copy source code
-COPY server/ .
+# Копирование исходного кода
+COPY server/tsconfig.json ./
+COPY server/src/ ./src/
 
-# Create logs directory with proper permissions
-RUN mkdir -p logs && chown -R node:node logs
-
-# Build TypeScript code
+# Сборка TypeScript кода
 RUN npm run build
 
-# Switch to production environment
+# Возвращаемся к основному слою
+FROM node:20-alpine
+WORKDIR /app
+
+# Копируем зависимости из первого этапа
+COPY --from=0 /app/node_modules /app/node_modules
+
+# Копируем собранные файлы из этапа builder
+COPY --from=builder /app/dist /app/dist
+COPY server/package*.json ./
+
+# Создаем директорию для логов с правильными разрешениями
+RUN mkdir -p logs && chown -R node:node logs
+
+# Устанавливаем рабочую среду
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Switch to non-root user
+# Переключаемся на непривилегированного пользователя
 USER node
 
-# Expose port
+# Открываем порт
 EXPOSE 3000
 
-# Start the server
+# Запускаем сервер
 CMD ["node", "dist/index.js"] 

@@ -20,6 +20,7 @@ help:
 	@echo "  make dev              - Start local development environment (stops previous first)"
 	@echo "  make dev-down        - Stop local environment"
 	@echo "  make dev-restart     - Restart local environment"
+	@echo "  make dev-quick       - Fast rebuild of changed components"
 	@echo "  make logs            - View logs"
 	@echo "$(YELLOW)Production:$(NC)"
 	@echo "  make prod            - Start production environment (for testing/emergency only, normally use CI/CD)"
@@ -48,6 +49,29 @@ dev-down:
 
 .PHONY: dev-restart
 dev-restart: dev-down dev
+
+# Fast development restart - only rebuilds changed components
+.PHONY: dev-quick
+dev-quick:
+	@echo "$(GREEN)Fast rebuild of changed components...$(NC)"
+	@read -p "Which component to rebuild? [all/server/admin/frontend]: " component; \
+	if [ "$$component" = "server" ]; then \
+		echo "$(GREEN)Rebuilding server...$(NC)"; \
+		$(DOCKER_COMPOSE) -f $(DC_FILE) -f $(DC_LOCAL_FILE) --env-file $(ENV_LOCAL) build server && \
+		$(DOCKER_COMPOSE) -f $(DC_FILE) -f $(DC_LOCAL_FILE) --env-file $(ENV_LOCAL) up -d --no-deps server; \
+	elif [ "$$component" = "admin" ]; then \
+		echo "$(GREEN)Rebuilding admin panel...$(NC)"; \
+		$(DOCKER_COMPOSE) -f $(DC_FILE) -f $(DC_LOCAL_FILE) --env-file $(ENV_LOCAL) build admin && \
+		$(DOCKER_COMPOSE) -f $(DC_FILE) -f $(DC_LOCAL_FILE) --env-file $(ENV_LOCAL) up -d --no-deps admin; \
+	elif [ "$$component" = "frontend" ]; then \
+		echo "$(GREEN)Rebuilding frontend...$(NC)"; \
+		$(DOCKER_COMPOSE) -f $(DC_FILE) -f $(DC_LOCAL_FILE) --env-file $(ENV_LOCAL) build frontend && \
+		$(DOCKER_COMPOSE) -f $(DC_FILE) -f $(DC_LOCAL_FILE) --env-file $(ENV_LOCAL) up -d --no-deps frontend; \
+	else \
+		echo "$(GREEN)Rebuilding all components...$(NC)"; \
+		$(DOCKER_COMPOSE) -f $(DC_FILE) -f $(DC_LOCAL_FILE) --env-file $(ENV_LOCAL) build && \
+		$(DOCKER_COMPOSE) -f $(DC_FILE) -f $(DC_LOCAL_FILE) --env-file $(ENV_LOCAL) up -d; \
+	fi
 
 # Production
 # Note: Primary deployment should be done via GitHub Actions CI/CD

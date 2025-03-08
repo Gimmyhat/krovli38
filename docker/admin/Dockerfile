@@ -1,45 +1,51 @@
-# Build stage
-FROM node:20-alpine AS build
+# Базовый образ с зависимостями - будет переиспользоваться для всех сборок
+FROM node:20-alpine AS deps
+WORKDIR /app
 
-# Install build dependencies
+# Установка глобальных инструментов один раз
 RUN apk add --no-cache python3 make g++ git && \
     npm install -g typescript@5.2.2 vite@4.5.0
 
-WORKDIR /app
-
-# Copy package files
+# Копирование только файлов пакетов для более эффективного кэширования
 COPY admin-panel/package*.json ./
 
-# Install ALL dependencies with development packages
-ENV NODE_ENV=development
+# Установка только необходимых зависимостей с правильным кэшированием
 RUN npm ci && \
     npm install @rollup/rollup-linux-x64-musl && \
-    npm install esbuild@0.21.5
+    npm install esbuild@0.21.5 && \
+    npm cache clean --force
 
-# Copy source files
-COPY admin-panel/ .
+# Этап сборки
+FROM deps AS build
+WORKDIR /app
 
-# Show debug info
-RUN ls -la && \
-    node --version && \
-    npm --version
+# Копирование исходного кода
+# Разделяем копирование на статические ресурсы и файлы кода для лучшего кэширования
+COPY admin-panel/public ./public/
+COPY admin-panel/index.html ./
+COPY admin-panel/vite.config.ts ./
+COPY admin-panel/tsconfig*.json ./
 
-# Set production environment for build
+# Копирование исходного кода (самое частое изменение)
+COPY admin-panel/src ./src/
+
+# Параметры сборки
 ENV NODE_ENV=production
 ENV VITE_API_URL=/api
 
-# Build the application
+# Сборка приложения
 RUN npm run build
 
-# Production stage
+# Этап продакшена (финальный образ)
 FROM nginx:alpine AS production
+WORKDIR /usr/share/nginx/html
 
-# Copy built files and nginx configuration
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY docker/admin/nginx.conf /etc/nginx/conf.d/default.conf
+# Копирование только собранных файлов
+COPY --from=build /app/dist ./
+COPY admin-panel/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port
+# Экспорт порта
 EXPOSE 80
 
-# Start nginx
+# Запуск Nginx
 CMD ["nginx", "-g", "daemon off;"] 

@@ -1,0 +1,20 @@
+{
+  "hero": {
+    "folder": "hero",
+    "type": "hero",
+    "component": "Hero",
+    "images": []
+  },
+  "services": {
+    "folder": "services",
+    "type": "service",
+    "component": "Services",
+    "images": []
+  },
+  "gallery": {
+    "folder": "gallery",
+    "type": "gallery",
+    "component": "Gallery",
+    "images": []
+  }
+}
