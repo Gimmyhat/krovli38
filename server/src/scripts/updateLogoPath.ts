@@ -18,17 +18,18 @@ async function updateLogoPath() {
       const newLogoPathSetting = new SiteSettings({
         key: 'logo_path',
         name: 'Путь к логотипу',
-        type: 'text',
+        type: 'image',
         group: 'general',
         value: IMAGE_PATHS.LOGO,
         defaultValue: IMAGE_PATHS.LOGO,
         description: 'Путь к файлу логотипа сайта',
-        order: 5
+        order: 2
       });
       
       await newLogoPathSetting.save();
       console.log('Создана новая настройка для пути к логотипу');
     } else {
+      logoPathSetting.type = 'image'; // Обновляем тип на image
       logoPathSetting.value = IMAGE_PATHS.LOGO;
       await logoPathSetting.save();
       console.log('Обновлен путь к логотипу');

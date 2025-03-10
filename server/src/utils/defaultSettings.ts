@@ -22,7 +22,7 @@ export const getDefaultSettings = () => {
     {
       key: 'logo_path',
       name: 'Путь к логотипу',
-      type: 'text',
+      type: 'image',
       group: 'general',
       value: IMAGE_PATHS.LOGO,
       defaultValue: IMAGE_PATHS.LOGO,
