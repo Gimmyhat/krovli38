@@ -19,6 +19,16 @@ export const getDefaultSettings = () => {
       order: 1
     },
     {
+      key: 'logo_path',
+      name: 'Путь к логотипу',
+      type: 'text',
+      group: 'general',
+      value: '/images/logo.png',
+      defaultValue: '/images/logo.png',
+      description: 'Путь к файлу логотипа сайта',
+      order: 2
+    },
+    {
       key: 'logo_size',
       name: 'Размер логотипа',
       type: 'number',
@@ -27,7 +37,7 @@ export const getDefaultSettings = () => {
       defaultValue: 96,
       options: { min: 32, max: 256 },
       description: 'Размер логотипа в пикселях (высота)',
-      order: 2
+      order: 3
     },
     {
       key: 'site_description',
@@ -37,7 +47,7 @@ export const getDefaultSettings = () => {
       value: 'Профессиональный ремонт плоской кровли в Иркутске. Качественные услуги по ремонту и обслуживанию кровли МКД.',
       defaultValue: 'Профессиональный ремонт плоской кровли в Иркутске. Качественные услуги по ремонту и обслуживанию кровли МКД.',
       description: 'Метатег description для SEO',
-      order: 3
+      order: 4
     },
     {
       key: 'site_keywords',
@@ -47,7 +57,7 @@ export const getDefaultSettings = () => {
       value: 'ремонт кровли, плоская кровля, кровельные работы, Иркутск, ремонт крыши',
       defaultValue: 'ремонт кровли, плоская кровля, кровельные работы, Иркутск, ремонт крыши',
       description: 'Метатег keywords для SEO',
-      order: 4
+      order: 5
     },
     
     // Секция Hero
