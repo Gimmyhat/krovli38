@@ -27,7 +27,11 @@ export const getDefaultSettings = () => {
       value: IMAGE_PATHS.LOGO,
       defaultValue: IMAGE_PATHS.LOGO,
       description: 'Путь к файлу логотипа сайта',
-      order: 2
+      order: 2,
+      options: {
+        type: 'logo',
+        section: 'general'
+      }
     },
     {
       key: 'logo_size',

@@ -23,14 +23,22 @@ async function updateLogoPath() {
         value: IMAGE_PATHS.LOGO,
         defaultValue: IMAGE_PATHS.LOGO,
         description: 'Путь к файлу логотипа сайта',
-        order: 2
+        order: 2,
+        options: {
+          type: 'logo',
+          section: 'general'
+        }
       });
       
       await newLogoPathSetting.save();
       console.log('Создана новая настройка для пути к логотипу');
     } else {
-      logoPathSetting.type = 'image'; // Обновляем тип на image
+      logoPathSetting.type = 'image';
       logoPathSetting.value = IMAGE_PATHS.LOGO;
+      logoPathSetting.options = {
+        type: 'logo',
+        section: 'general'
+      };
       await logoPathSetting.save();
       console.log('Обновлен путь к логотипу');
     }
