@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { useEffect } from 'react';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import Hero from './components/sections/Hero';
@@ -8,14 +9,53 @@ import Gallery from './components/sections/Gallery';
 import Benefits from './components/sections/Benefits';
 import WorkTypes from './components/sections/WorkTypes';
 import ContactForm from './components/sections/ContactForm';
+import MetaTags from './components/MetaTags';
 import { Phone, Mail, Clock } from 'lucide-react';
 import { CONTACT_INFO } from './constants/navigation';
 import { FormProvider } from './context/FormContext';
+import { useSettings } from './context/SettingsContext';
 
 function App() {
+  const { settings, isLoading } = useSettings();
+
+  // Применяем динамическую цветовую тему на основе настроек
+  useEffect(() => {
+    if (isLoading) return;
+
+    // Создаем стилевую переменную
+    const style = document.createElement('style');
+    const colorVars = `
+      :root {
+        --primary-color: ${settings.primary_color || '#3B82F6'};
+        --secondary-color: ${settings.secondary_color || '#1E3A8A'};
+        --text-color: ${settings.text_color || '#111827'};
+        --background-color: ${settings.background_color || '#F9FAFB'};
+      }
+      
+      .bg-primary { background-color: var(--primary-color) !important; }
+      .text-primary { color: var(--primary-color) !important; }
+      .border-primary { border-color: var(--primary-color) !important; }
+      
+      .bg-secondary { background-color: var(--secondary-color) !important; }
+      .text-secondary { color: var(--secondary-color) !important; }
+      .border-secondary { border-color: var(--secondary-color) !important; }
+    `;
+    
+    style.textContent = colorVars;
+    document.head.appendChild(style);
+    
+    // Удаляем стиль при размонтировании компонента
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, [settings, isLoading]);
+
   return (
     <FormProvider>
       <div className="min-h-screen bg-white">
+        {/* MetaTags для динамических метаданных страницы */}
+        <MetaTags />
+        
         <Header />
         <Hero />
         <Info />

@@ -30,13 +30,35 @@ export interface ImageUpdateData {
   isActive?: boolean;
 }
 
-// Получение списка всех изображений
-export const fetchImages = async (): Promise<ImageData[]> => {
+export interface PaginationData {
+  totalItems: number;
+  currentPage: number;
+  totalPages: number;
+  limit: number;
+}
+
+export interface ImagesResponse {
+  images: ImageData[];
+  pagination: PaginationData;
+}
+
+// Получение списка всех изображений с поддержкой пагинации и фильтрации
+export const fetchImages = async (params?: {
+  page?: number;
+  limit?: number;
+  type?: string;
+  section?: string;
+  search?: string;
+  isActive?: boolean;
+  tags?: string[];
+  sort?: string;
+}): Promise<ImagesResponse> => {
   try {
     const { data } = await axios.get(`${API_URL}/images`, {
+      params,
       withCredentials: true
     });
-    return data.images;
+    return data;
   } catch (error) {
     console.error('Ошибка при получении изображений:', error);
     throw error;
@@ -80,11 +102,13 @@ export const uploadSingleImage = async (
       formData.append('tags', metadata.tags.join(','));
     }
 
+    const token = localStorage.getItem('token');
+
     const { data } = await axios.post(`${API_URL}/images/upload`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
-      },
-      withCredentials: true
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
     });
     
     return data.image;
@@ -118,11 +142,13 @@ export const uploadMultipleImages = async (
       formData.append('tags', JSON.stringify(metadata.tags));
     }
 
+    const token = localStorage.getItem('token');
+
     const { data } = await axios.post(`${API_URL}/images/upload/multiple`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
-      },
-      withCredentials: true
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
     });
     
     return data.images;
@@ -135,9 +161,14 @@ export const uploadMultipleImages = async (
 // Обновление метаданных изображения
 export const updateImage = async (id: string, updateData: ImageUpdateData): Promise<ImageData> => {
   try {
+    const token = localStorage.getItem('token');
+
     const { data } = await axios.put(`${API_URL}/images/${id}`, updateData, {
-      withCredentials: true
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
     });
+    
     return data.image;
   } catch (error) {
     console.error(`Ошибка при обновлении изображения с ID ${id}:`, error);
@@ -148,12 +179,78 @@ export const updateImage = async (id: string, updateData: ImageUpdateData): Prom
 // Удаление изображения
 export const deleteImage = async (id: string): Promise<{ success: boolean; message: string }> => {
   try {
+    const token = localStorage.getItem('token');
+
     const { data } = await axios.delete(`${API_URL}/images/${id}`, {
-      withCredentials: true
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
     });
+    
     return data;
   } catch (error) {
     console.error(`Ошибка при удалении изображения с ID ${id}:`, error);
+    throw error;
+  }
+};
+
+// Интерфейс для метаданных при создании изображения из Cloudinary
+export interface CloudinaryImageData {
+  public_id: string;
+  type?: string;
+  alt?: string;
+  title?: string;
+  section?: string;
+  tags?: string[];
+}
+
+// Создание записи изображения на основе публичного ID из Cloudinary
+export const createImageFromCloudinary = async (data: CloudinaryImageData): Promise<ImageData> => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    const { data: response } = await axios.post(`${API_URL}/images/cloudinary`, data, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
+    });
+    
+    return response.image;
+  } catch (error) {
+    console.error('Ошибка при создании изображения из Cloudinary:', error);
+    throw error;
+  }
+};
+
+interface ImportLocalImagesResult {
+  message: string;
+  results: {
+    success: number;
+    skipped: number;
+    error: number;
+    total: number;
+  };
+}
+
+// Импорт локальных изображений в Cloudinary
+export const importLocalImages = async (
+  directories?: string[]
+): Promise<ImportLocalImagesResult> => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    const { data } = await axios.post(`${API_URL}/images/import-local`, 
+      { directories },
+      {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
+      }
+    );
+    
+    return data;
+  } catch (error) {
+    console.error('Ошибка при импорте локальных изображений:', error);
     throw error;
   }
 }; 

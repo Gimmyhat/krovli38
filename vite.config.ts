@@ -9,6 +9,14 @@ export default defineConfig({
     hmr: true,
     watch: {
       usePolling: false
+    },
+    proxy: {
+      // Перенаправляем запросы к API
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false
+      }
     }
   },
   optimizeDeps: {

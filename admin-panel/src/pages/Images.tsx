@@ -8,9 +8,8 @@ import {
   Paper, 
   Divider 
 } from '@mantine/core';
-import { IconUpload, IconPhoto } from '@tabler/icons-react';
-import ImageUploader from '../components/Images/ImageUploader';
-import ImagesGallery from '../components/Images/ImagesGallery';
+import { IconUpload, IconPhoto, IconFileImport } from '@tabler/icons-react';
+import { ImageUploader, ImagesGallery, ImportLocalImages } from '../components/Images';
 
 const Images: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string | null>('gallery');
@@ -44,6 +43,9 @@ const Images: React.FC = () => {
             <Tabs.Tab value="upload-multiple" leftSection={<IconUpload size={16} />}>
               Загрузить несколько
             </Tabs.Tab>
+            <Tabs.Tab value="import-local" leftSection={<IconFileImport size={16} />}>
+              Импорт локальных
+            </Tabs.Tab>
           </Tabs.List>
           
           <Divider my="sm" />
@@ -69,6 +71,12 @@ const Images: React.FC = () => {
                 onUploadSuccess={handleUploadSuccess} 
                 multipleMode={true} 
               />
+            </Box>
+          </Tabs.Panel>
+          
+          <Tabs.Panel value="import-local" pt="xs">
+            <Box px="xs">
+              <ImportLocalImages onCompleted={handleUploadSuccess} />
             </Box>
           </Tabs.Panel>
         </Tabs>

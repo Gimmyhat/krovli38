@@ -8,7 +8,8 @@
     "build": "tsc",
     "watch": "tsc -w",
     "create-admin": "ts-node src/scripts/createAdmin.ts",
-    "check-admin": "ts-node src/scripts/checkAdmin.ts"
+    "check-admin": "ts-node src/scripts/checkAdmin.ts",
+    "seed-gallery": "ts-node src/scripts/seedGallery.ts"
   },
   "keywords": [],
   "author": "",

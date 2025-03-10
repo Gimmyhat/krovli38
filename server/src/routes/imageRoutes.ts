@@ -5,7 +5,10 @@ import {
   updateImage, 
   deleteImageById,
   uploadSingleImage,
-  uploadMultipleImages
+  uploadMultipleImages,
+  createFromCloudinary,
+  importLocalImagesHandler,
+  checkImagePaths
 } from '../controllers/imageController';
 import { authenticateJWT, requireAdmin } from '../middleware/auth';
 import { uploadSingleImage as uploadMiddleware, uploadMultipleImages as uploadMultipleMiddleware, handleMulterError } from '../middleware/upload';
@@ -34,5 +37,11 @@ router.delete('/:id', authenticateJWT, requireAdmin, deleteImageById);
 router.post('/upload', authenticateJWT, requireAdmin, uploadMiddleware, handleMulterError, uploadSingleImage);
 // @ts-ignore - временное решение проблем с типами
 router.post('/upload/multiple', authenticateJWT, requireAdmin, uploadMultipleMiddleware, handleMulterError, uploadMultipleImages);
+// @ts-ignore - временное решение проблем с типами
+router.post('/cloudinary', authenticateJWT, requireAdmin, createFromCloudinary);
+// @ts-ignore - временное решение проблем с типами
+router.post('/import-local', authenticateJWT, requireAdmin, importLocalImagesHandler);
+// @ts-ignore - временное решение проблем с типами
+router.post('/check-paths', authenticateJWT, requireAdmin, checkImagePaths);
 
 export default router; 

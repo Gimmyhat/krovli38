@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import Image from '../models/Image';
-import { uploadImage, deleteImage } from '../config/cloudinary';
+import cloudinaryConfig, { uploadImage, deleteImage } from '../config/cloudinary';
 import sharp from 'sharp';
+import fs from 'fs';
 
 // Расширение типа Express.Request для работы с multer
 declare global {
@@ -165,11 +166,12 @@ export const getImages = async (req: Request, res: Response) => {
   try {
     const { 
       page = 1, 
-      limit = 10, 
+      limit = 12, 
       type, 
       section, 
       tags, 
-      isActive 
+      isActive,
+      search 
     } = req.query;
 
     const query: any = {};
@@ -181,22 +183,35 @@ export const getImages = async (req: Request, res: Response) => {
       query.tags = { $in: tags.split(',').map((tag: string) => tag.trim()) };
     }
     if (isActive !== undefined) query.isActive = isActive === 'true';
+    
+    // Добавляем поиск по названию и alt тексту
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { alt: { $regex: search, $options: 'i' } }
+      ];
+    }
 
     // Считаем общее количество изображений по фильтру
-    const total = await Image.countDocuments(query);
+    const totalItems = await Image.countDocuments(query);
+    const totalPages = Math.ceil(totalItems / Number(limit));
+    const currentPage = Number(page);
 
     // Получаем изображения с пагинацией
     const images = await Image.find(query)
       .sort({ order: 1, createdAt: -1 })
-      .skip((Number(page) - 1) * Number(limit))
+      .skip((currentPage - 1) * Number(limit))
       .limit(Number(limit));
 
-    // Отправляем результат
+    // Отправляем результат в нужном формате
     res.json({
       images,
-      totalPages: Math.ceil(total / Number(limit)),
-      currentPage: Number(page),
-      totalImages: total
+      pagination: {
+        totalItems,
+        currentPage,
+        totalPages,
+        limit: Number(limit)
+      }
     });
   } catch (error: any) {
     console.error('Ошибка при получении изображений:', error);
@@ -315,11 +330,182 @@ export const deleteImageById = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Создание записи изображения на основе публичного ID из Cloudinary
+ * @route POST /api/images/cloudinary
+ */
+export const createFromCloudinary = async (req: Request, res: Response) => {
+  try {
+    const { public_id, type, alt, title, section, tags } = req.body;
+
+    // Проверяем наличие public_id
+    if (!public_id) {
+      return res.status(400).json({ error: 'Не указан public_id изображения' });
+    }
+
+    // Проверяем, существует ли уже изображение с таким public_id
+    const existingImage = await Image.findOne({ public_id });
+    if (existingImage) {
+      return res.status(409).json({ 
+        error: 'Изображение с таким public_id уже существует',
+        image: existingImage 
+      });
+    }
+
+    // Получаем информацию о ресурсе из Cloudinary
+    const result = await cloudinaryConfig.v2.api.resource(public_id);
+
+    // Создаем запись в MongoDB
+    const newImage = new Image({
+      public_id,
+      url: result.url,
+      secure_url: result.secure_url,
+      type: type || 'content',
+      alt: alt || '',
+      title: title || '',
+      section: section || 'general',
+      width: result.width,
+      height: result.height,
+      format: result.format,
+      size: result.bytes,
+      tags: tags || [],
+    });
+
+    // Сохраняем в БД
+    await newImage.save();
+
+    // Возвращаем результат
+    res.status(201).json({
+      message: 'Изображение успешно добавлено',
+      image: newImage
+    });
+  } catch (error: any) {
+    console.error('Ошибка при создании изображения из Cloudinary:', error);
+    res.status(500).json({
+      error: 'Ошибка при создании изображения',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Импорт локальных изображений в Cloudinary
+ * @route POST /api/images/import-local
+ */
+export const importLocalImagesHandler = async (req: Request, res: Response) => {
+  try {
+    const { directories } = req.body;
+    
+    // Импортируем утилиту для импорта изображений
+    const { importLocalImages } = require('../scripts/importLocalImages');
+    
+    // Запускаем импорт
+    const results = await importLocalImages(directories || undefined);
+    
+    res.json({
+      message: 'Импорт локальных изображений выполнен',
+      results
+    });
+  } catch (error: any) {
+    console.error('Ошибка при импорте локальных изображений:', error);
+    res.status(500).json({
+      error: 'Ошибка при импорте локальных изображений',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Проверка наличия изображений в указанных директориях
+ * @route POST /api/images/check-paths
+ */
+export const checkImagePaths = async (req: Request, res: Response) => {
+  try {
+    const { directories, deep = false } = req.body;
+    
+    // Импортируем утилиту для проверки изображений
+    const { default: importScript } = require('../scripts/importLocalImages');
+    const { getImageFiles, getFullDirectoryPath, findAllImageDirectories } = importScript;
+    
+    const foundPaths: string[] = [];
+    let checkedDirectories: string[] = [];
+    
+    // Если включен режим глубокого сканирования, ищем директории с изображениями
+    if (deep) {
+      console.log('Выполняется глубокое сканирование файловой системы...');
+      // Находим все директории с изображениями в корневых каталогах
+      const rootDirs = ['/var/www/html', '/usr/share/nginx/html', '/app', '/'];
+      for (const rootDir of rootDirs) {
+        if (fs.existsSync(rootDir)) {
+          console.log(`Сканирование корневой директории: ${rootDir}`);
+          try {
+            const foundDirs = await findAllImageDirectories(rootDir);
+            checkedDirectories = [...checkedDirectories, ...foundDirs];
+            console.log(`Найдено ${foundDirs.length} директорий с изображениями в ${rootDir}`);
+          } catch (err) {
+            console.error(`Ошибка при сканировании ${rootDir}:`, err);
+          }
+        }
+      }
+    }
+    
+    // Объединяем найденные директории с указанными пользователем
+    const allDirectories = [...new Set([...directories, ...checkedDirectories])];
+    const validDirectories: string[] = [];
+    
+    // Проверяем каждую директорию
+    for (const directory of allDirectories) {
+      try {
+        // Определяем полный путь к директории
+        const dirPath = getFullDirectoryPath(directory);
+        
+        if (fs.existsSync(dirPath)) {
+          validDirectories.push(directory);
+          console.log(`Проверка директории: ${dirPath}`);
+          const imageFiles = await getImageFiles(dirPath);
+          
+          // Добавляем найденные пути в результат
+          imageFiles.forEach((file: { filePath: string; relativePath: string }) => {
+            foundPaths.push(`${directory}/${file.relativePath}`);
+          });
+          
+          console.log(`Найдено ${imageFiles.length} изображений в ${dirPath}`);
+        } else {
+          console.warn(`Директория ${dirPath} не существует, пропускаем`);
+        }
+      } catch (err) {
+        console.error(`Ошибка при проверке директории ${directory}:`, err);
+      }
+    }
+    
+    res.json({
+      message: 'Проверка путей завершена',
+      checkedDirectories: allDirectories.length,
+      validDirectories: validDirectories,
+      foundDirectories: allDirectories.filter((dir: string) => {
+        const fullPath = getFullDirectoryPath(dir);
+        return fs.existsSync(fullPath);
+      }),
+      imagePaths: foundPaths,
+      count: foundPaths.length
+    });
+  } catch (error: any) {
+    console.error('Ошибка при проверке путей изображений:', error);
+    res.status(500).json({
+      error: 'Ошибка при проверке путей изображений',
+      details: error.message
+    });
+  }
+};
+
 export default {
   uploadSingleImage,
   uploadMultipleImages,
   getImages,
   getImageById,
   updateImage,
-  deleteImageById
+  deleteImageById,
+  createFromCloudinary,
+  importLocalImagesHandler,
+  checkImagePaths
 }; 

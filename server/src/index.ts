@@ -8,15 +8,21 @@ import requestRoutes from './routes/requests';
 import logsRoutes from './routes/logs';
 // @ts-ignore - временная заглушка для экспериментальных маршрутов изображений
 import imageRoutes from './routes/imageRoutes';
+// @ts-ignore - временная заглушка для экспериментальных маршрутов настроек
+import settingsRoutes from './routes/settings';
+// @ts-ignore - временная заглушка для маршрутов галереи
+import galleryRoutes from './routes/galleryRoutes';
 import { initializeAdmin } from './scripts/init';
+import cloudinaryConfig from './config/cloudinary';
+import { SERVER, DATABASE } from './constants';
 
 // Загрузка переменных окружения
 dotenv.config();
 
 console.log('Starting server with configuration:', {
-  mongoUri: process.env.MONGODB_URI,
-  nodeEnv: process.env.NODE_ENV,
-  port: process.env.PORT || 3000
+  mongoUri: DATABASE.URI,
+  nodeEnv: SERVER.NODE_ENV,
+  port: SERVER.PORT
 });
 
 // Подключение к базе данных и инициализация администратора
@@ -33,14 +39,14 @@ connectDB()
   });
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = SERVER.PORT;
 
 // Настройка CORS
 app.use(cors({
-  origin: '*',
+  origin: SERVER.CORS_ORIGIN, // Используем значение из констант
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
 }));
 
 // Middleware
@@ -53,6 +59,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/logs', logsRoutes);
 app.use('/api/images', imageRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/gallery', galleryRoutes);
 
 // Базовый маршрут API
 app.get('/api', (req, res) => {
@@ -62,7 +70,9 @@ app.get('/api', (req, res) => {
       '/api/auth',
       '/api/requests',
       '/api/logs',
-      '/api/images'
+      '/api/images',
+      '/api/settings',
+      '/api/gallery'
     ]
   });
 });
@@ -80,9 +90,23 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   res.status(500).json({ message: 'Что-то пошло не так!' });
 });
 
+// Обеспечиваем наличие Upload Preset для Cloudinary
+const setupCloudinary = async () => {
+  try {
+    const preset = await cloudinaryConfig.ensureUploadPreset();
+    console.log('Cloudinary Upload Preset настроен успешно:', preset.name);
+  } catch (error) {
+    console.error('Ошибка при настройке Cloudinary Upload Preset:', error);
+    logger.error('Cloudinary Upload Preset ошибка:', { error });
+  }
+};
+
 // Запуск сервера
 const portNumber = parseInt(port.toString(), 10);
 app.listen(portNumber, '0.0.0.0', () => {
   console.log(`Server is running on port ${portNumber} in ${process.env.NODE_ENV || 'development'} mode`);
   logger.info(`Сервер запущен на порту ${portNumber} в режиме ${process.env.NODE_ENV || 'development'}`);
+  
+  // Настраиваем Cloudinary после запуска сервера
+  setupCloudinary();
 }); 
