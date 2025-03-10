@@ -1,15 +1,28 @@
 import React from 'react';
-import { Phone, Building2 } from 'lucide-react';
+import { Phone } from 'lucide-react';
 import { NAV_ITEMS, CONTACT_INFO } from '../../constants/navigation';
+import { IMAGE_PATHS } from '../../constants';
+import { useSettings } from '../../context/SettingsContext';
 
 const Navigation: React.FC = () => {
+  const { settings } = useSettings();
+  const logoSize = settings.logo_size || 96; // Используем значение из настроек или 96px по умолчанию
+
   return (
     <nav className="bg-black/80 backdrop-blur-md">
       <div className="container mx-auto px-6 py-4">
         <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-2 text-white">
-            <Building2 className="h-8 w-8" />
-            <span className="text-2xl font-bold">РемонтКровли</span>
+          <div className="flex items-center space-x-3 text-white">
+            <img 
+              src={IMAGE_PATHS.LOGO} 
+              alt="Кровли38" 
+              className="w-auto mix-blend-screen"
+              style={{ 
+                height: `${logoSize}px`,
+                filter: 'brightness(1.1)' 
+              }} 
+            />
+            <span className="text-2xl font-bold">КровляПро</span>
           </div>
           <div className="flex items-center space-x-8 text-white">
             {NAV_ITEMS.map((item) => (

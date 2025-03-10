@@ -9,7 +9,8 @@
     "watch": "tsc -w",
     "create-admin": "ts-node src/scripts/createAdmin.ts",
     "check-admin": "ts-node src/scripts/checkAdmin.ts",
-    "seed-gallery": "ts-node src/scripts/seedGallery.ts"
+    "seed-gallery": "ts-node src/scripts/seedGallery.ts",
+    "add-logo-size": "ts-node src/scripts/addLogoSizeSetting.ts"
   },
   "keywords": [],
   "author": "",
