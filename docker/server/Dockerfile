@@ -28,5 +28,9 @@ USER node
 # Expose port
 EXPOSE 3000
 
-# Start the server
-CMD ["node", "dist/index.js"] 
+# Add startup script
+COPY docker/server/startup.sh /startup.sh
+RUN chmod +x /startup.sh
+
+# Start the server with startup script
+CMD ["/startup.sh"] 
