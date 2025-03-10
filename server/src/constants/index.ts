@@ -2,6 +2,14 @@
  * Общие константы для сервера
  */
 
+// Пути к изображениям (синхронизированы с фронтендом)
+export const IMAGE_PATHS = {
+  LOGO: '/images/logo.png',
+  DEFAULT_HERO: '/images/hero/hero-bg.jpg',
+  DEFAULT_GALLERY: '/images/gallery/project-',
+  FALLBACK: '/images/placeholder.jpg',
+};
+
 // Настройки сервера
 export const SERVER = {
   PORT: process.env.PORT || 3000,

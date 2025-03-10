@@ -1,12 +1,10 @@
 import mongoose from 'mongoose';
 import SiteSettings from '../models/SiteSettings';
 import dotenv from 'dotenv';
+import { IMAGE_PATHS } from '../constants';
 
 // Загружаем переменные окружения
 dotenv.config();
-
-// Используем то же значение, что определено в src/constants/index.ts
-const LOGO_PATH = '/images/logo.png';
 
 async function updateLogoPath() {
   try {
@@ -22,8 +20,8 @@ async function updateLogoPath() {
         name: 'Путь к логотипу',
         type: 'text',
         group: 'general',
-        value: LOGO_PATH,
-        defaultValue: LOGO_PATH, // Добавляем значение по умолчанию
+        value: IMAGE_PATHS.LOGO,
+        defaultValue: IMAGE_PATHS.LOGO,
         description: 'Путь к файлу логотипа сайта',
         order: 5
       });
@@ -31,7 +29,7 @@ async function updateLogoPath() {
       await newLogoPathSetting.save();
       console.log('Создана новая настройка для пути к логотипу');
     } else {
-      logoPathSetting.value = LOGO_PATH;
+      logoPathSetting.value = IMAGE_PATHS.LOGO;
       await logoPathSetting.save();
       console.log('Обновлен путь к логотипу');
     }

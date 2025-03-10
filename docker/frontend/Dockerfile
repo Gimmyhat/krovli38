@@ -30,11 +30,16 @@ RUN ls -la && \
 ENV NODE_ENV=production
 ENV VITE_API_URL=/api
 
-# Build the application
-RUN npm run build
+# Clean dist directory and build the application
+RUN rm -rf dist && \
+    npm run build
 
 # Production stage
 FROM nginx:alpine AS production
+
+# Remove default nginx static assets and create necessary directories
+RUN rm -rf /usr/share/nginx/html/* && \
+    mkdir -p /usr/share/nginx/html/images
 
 # Copy built files and nginx configuration
 COPY --from=build /app/dist /usr/share/nginx/html

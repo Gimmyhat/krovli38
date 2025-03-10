@@ -1,5 +1,6 @@
 // Удаляем импорт, он не нужен на серверной стороне
 // import { createElement } from 'react';
+import { IMAGE_PATHS } from '../constants';
 
 /**
  * Настройки сайта по умолчанию
@@ -23,8 +24,8 @@ export const getDefaultSettings = () => {
       name: 'Путь к логотипу',
       type: 'text',
       group: 'general',
-      value: '/images/logo.png',
-      defaultValue: '/images/logo.png',
+      value: IMAGE_PATHS.LOGO,
+      defaultValue: IMAGE_PATHS.LOGO,
       description: 'Путь к файлу логотипа сайта',
       order: 2
     },

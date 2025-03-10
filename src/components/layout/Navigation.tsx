@@ -7,6 +7,7 @@ import { useSettings } from '../../context/SettingsContext';
 const Navigation: React.FC = () => {
   const { settings } = useSettings();
   const logoSize = settings.logo_size || 96; // Используем значение из настроек или 96px по умолчанию
+  const logoPath = settings.logo_path || IMAGE_PATHS.LOGO; // Используем путь из настроек или из констант
 
   return (
     <nav className="bg-black/80 backdrop-blur-md">
@@ -14,7 +15,7 @@ const Navigation: React.FC = () => {
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-3 text-white">
             <img 
-              src={IMAGE_PATHS.LOGO} 
+              src={logoPath} 
               alt="Кровли38" 
               className="w-auto mix-blend-screen"
               style={{ 

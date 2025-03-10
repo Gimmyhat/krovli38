@@ -253,23 +253,23 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
             />
           </Grid.Col>
           <Grid.Col span={{ base: 12, sm: 3 }}>
-            <Select
+              <Select
               placeholder="Тип изображения"
-              value={typeFilter}
-              onChange={setTypeFilter}
+                value={typeFilter}
+                onChange={setTypeFilter}
               data={IMAGE_TYPES}
-              clearable
-            />
-          </Grid.Col>
+                clearable
+              />
+            </Grid.Col>
           <Grid.Col span={{ base: 12, sm: 3 }}>
-            <Select
+              <Select
               placeholder="Раздел"
-              value={sectionFilter}
-              onChange={setSectionFilter}
+                value={sectionFilter}
+                onChange={setSectionFilter}
               data={SECTIONS}
-              clearable
-            />
-          </Grid.Col>
+                clearable
+              />
+            </Grid.Col>
           <Grid.Col span={{ base: 12, sm: 2 }}>
             <Button 
               variant="light" 
@@ -278,9 +278,9 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
             >
               Сбросить
             </Button>
-          </Grid.Col>
-        </Grid>
-      </Paper>
+            </Grid.Col>
+          </Grid>
+        </Paper>
       
       {/* Список изображений */}
       <Box pos="relative" mih={400}>
@@ -297,21 +297,21 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
             <Box ta="center">
               <IconPhoto size={48} color="gray" style={{ opacity: 0.5 }} />
               <Text c="dimmed" mt="md">
-                Изображения не найдены
-              </Text>
-            </Box>
+            Изображения не найдены
+          </Text>
+        </Box>
           </Center>
-        ) : (
+      ) : (
           <Grid>
             {images.map((image) => (
               <Grid.Col key={image._id} span={{ base: 12, sm: 6, md: 4, lg: 3 }}>
                 <Card shadow="sm" padding="sm">
                   <Card.Section>
-                    <Image
-                      src={image.secure_url}
+                      <Image
+                        src={image.secure_url}
                       height={200}
                       alt={image.alt || 'Image'}
-                      fit="cover"
+                        fit="cover"
                     />
                   </Card.Section>
                   
@@ -328,7 +328,7 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
                     {image.section && (
                       <Badge size="sm" variant="outline">
                         {SECTIONS.find(s => s.value === image.section)?.label || image.section}
-                      </Badge>
+                        </Badge>
                     )}
                   </Flex>
                   
@@ -344,14 +344,14 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
                     </Tooltip>
                     
                     <Menu shadow="md" width={200}>
-                      <Menu.Target>
+                          <Menu.Target>
                         <ActionIcon variant="subtle">
-                          <IconDotsVertical size={16} />
-                        </ActionIcon>
-                      </Menu.Target>
-                      
-                      <Menu.Dropdown>
-                        <Menu.Item
+                              <IconDotsVertical size={16} />
+                            </ActionIcon>
+                          </Menu.Target>
+                          
+                          <Menu.Dropdown>
+                            <Menu.Item 
                           leftSection={<IconPencil size={14} />}
                           onClick={() => {
                             setCurrentImage(image);
@@ -363,30 +363,30 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
                             });
                             setEditModalOpen(true);
                           }}
-                        >
-                          Редактировать
-                        </Menu.Item>
-                        <Menu.Item
+                            >
+                              Редактировать
+                            </Menu.Item>
+                            <Menu.Item 
                           leftSection={<IconTrash size={14} />}
-                          color="red"
+                              color="red" 
                           onClick={() => handleDeleteImage(image)}
-                        >
-                          Удалить
-                        </Menu.Item>
-                      </Menu.Dropdown>
-                    </Menu>
-                  </Group>
+                            >
+                              Удалить
+                            </Menu.Item>
+                          </Menu.Dropdown>
+                        </Menu>
+                      </Group>
                 </Card>
               </Grid.Col>
             ))}
           </Grid>
         )}
       </Box>
-      
+          
       {/* Пагинация */}
       {totalPages > 1 && (
         <Group justify="center" mt="xl">
-          <Pagination
+              <Pagination 
             value={currentPage}
             onChange={setCurrentPage}
             total={totalPages}
@@ -402,48 +402,48 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
       >
         {currentImage && (
           <Box>
-            <Image
-              src={currentImage.secure_url}
+                <Image
+                  src={currentImage.secure_url}
               alt={currentImage.alt || 'Preview'}
               fit="contain"
               h={200}
               mb="md"
             />
             
-            <TextInput
+                <TextInput
               label="Название"
               placeholder="Введите название изображения"
-              value={editFormData.title || ''}
-              onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
-              mb="sm"
-            />
-            
+                  value={editFormData.title || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                  mb="sm"
+                />
+                
             <TextInput
               label="Alt текст"
-              placeholder="Введите альтернативный текст"
-              value={editFormData.alt || ''}
-              onChange={(e) => setEditFormData({ ...editFormData, alt: e.target.value })}
-              mb="sm"
-            />
-            
-            <Select
+                  placeholder="Введите альтернативный текст"
+                  value={editFormData.alt || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, alt: e.target.value })}
+                  mb="sm"
+                />
+                
+                <Select
               label="Тип"
               placeholder="Выберите тип изображения"
-              data={IMAGE_TYPES}
-              value={editFormData.type || ''}
-              onChange={(value) => setEditFormData({ ...editFormData, type: value || undefined })}
+                  data={IMAGE_TYPES}
+                  value={editFormData.type || ''}
+                  onChange={(value) => setEditFormData({ ...editFormData, type: value || undefined })}
               mb="sm"
-              clearable
-            />
-            
-            <Select
+                  clearable
+                />
+                
+                <Select
               label="Раздел"
-              placeholder="Выберите раздел"
-              data={SECTIONS}
-              value={editFormData.section || ''}
-              onChange={(value) => setEditFormData({ ...editFormData, section: value || undefined })}
+                  placeholder="Выберите раздел"
+                  data={SECTIONS}
+                  value={editFormData.section || ''}
+                  onChange={(value) => setEditFormData({ ...editFormData, section: value || undefined })}
               mb="lg"
-              clearable
+                  clearable
             />
             
             <Group justify="flex-end">

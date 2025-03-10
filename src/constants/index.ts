@@ -30,7 +30,7 @@ export const ROUTES = {
 
 // Пути к изображениям (для типичных случаев)
 export const IMAGE_PATHS = {
-  LOGO: '/images/logo.svg',
+  LOGO: '/images/logo.png',
   DEFAULT_HERO: '/images/hero/hero-bg.jpg',
   DEFAULT_GALLERY: '/images/gallery/project-',
   FALLBACK: '/images/placeholder.jpg',
