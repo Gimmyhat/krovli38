@@ -15,11 +15,8 @@ COPY server/ .
 # Create logs directory with proper permissions
 RUN mkdir -p logs && chown -R node:node logs
 
-# Build TypeScript code
+# Build TypeScript code (включая все скрипты)
 RUN npm run build
-
-# Compile the addLogoSizeSetting script
-RUN npx tsc src/scripts/addLogoSizeSetting.ts --outDir dist/scripts
 
 # Switch to production environment
 ENV NODE_ENV=production
