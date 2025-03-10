@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDB } from './config/database';
 import authRoutes from './routes/authRoutes';
-import { logger, httpLogger } from './utils/logger';
+import { logger, httpLogger, logRequest } from './utils/logger';
 import requestRoutes from './routes/requests';
 import logsRoutes from './routes/logs';
 // @ts-ignore - временная заглушка для экспериментальных маршрутов изображений
@@ -13,8 +13,9 @@ import settingsRoutes from './routes/settings';
 // @ts-ignore - временная заглушка для маршрутов галереи
 import galleryRoutes from './routes/galleryRoutes';
 import { initializeAdmin } from './scripts/init';
-import cloudinaryConfig from './config/cloudinary';
+import * as cloudinaryConfig from './config/cloudinary';
 import { SERVER, DATABASE } from './constants';
+import { ensureAllSettings, ensureSetting } from './utils/ensureSettings';
 
 // Загрузка переменных окружения
 dotenv.config();
@@ -101,12 +102,29 @@ const setupCloudinary = async () => {
   }
 };
 
+// Функция для инициализации настроек сайта
+const setupSettings = async () => {
+  try {
+    // Проверяем наличие настройки размера логотипа
+    await ensureSetting('logo_size');
+    console.log('Настройка размера логотипа проверена и обновлена при необходимости');
+    
+    // Проверяем наличие других новых настроек
+    await ensureAllSettings();
+    console.log('Все настройки сайта проверены и обновлены при необходимости');
+  } catch (error) {
+    console.error('Ошибка при инициализации настроек:', error);
+    logger.error('Ошибка инициализации настроек:', { error });
+  }
+};
+
 // Запуск сервера
 const portNumber = parseInt(port.toString(), 10);
 app.listen(portNumber, '0.0.0.0', () => {
   console.log(`Server is running on port ${portNumber} in ${process.env.NODE_ENV || 'development'} mode`);
   logger.info(`Сервер запущен на порту ${portNumber} в режиме ${process.env.NODE_ENV || 'development'}`);
   
-  // Настраиваем Cloudinary после запуска сервера
+  // Инициализируем настройки сайта и Cloudinary
+  setupSettings();
   setupCloudinary();
 }); 

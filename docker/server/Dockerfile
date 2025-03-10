@@ -18,6 +18,9 @@ RUN mkdir -p logs && chown -R node:node logs
 # Build TypeScript code
 RUN npm run build
 
+# Compile the addLogoSizeSetting script
+RUN npx tsc src/scripts/addLogoSizeSetting.ts --outDir dist/scripts
+
 # Switch to production environment
 ENV NODE_ENV=production
 ENV PORT=3000
