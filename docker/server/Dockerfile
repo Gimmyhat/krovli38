@@ -9,11 +9,14 @@ COPY server/package*.json ./
 ENV NODE_ENV=development
 RUN npm install
 
-# Copy source code
+# Copy source code and startup script
 COPY server/ .
+COPY docker/server/startup.sh ./startup.sh
 
-# Create logs directory with proper permissions
-RUN mkdir -p logs && chown -R node:node logs
+# Create logs directory and set permissions
+RUN mkdir -p logs && \
+    chown -R node:node . && \
+    chmod +x ./startup.sh
 
 # Build TypeScript code (включая все скрипты)
 RUN npm run build
@@ -28,9 +31,5 @@ USER node
 # Expose port
 EXPOSE 3000
 
-# Add startup script
-COPY docker/server/startup.sh /startup.sh
-RUN chmod +x /startup.sh
-
 # Start the server with startup script
-CMD ["/startup.sh"] 
+CMD ["./startup.sh"] 
