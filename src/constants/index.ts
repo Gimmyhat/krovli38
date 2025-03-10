@@ -40,7 +40,7 @@ export const IMAGE_PATHS = {
 export const SITE_METADATA = {
   NAME: 'Кровли38',
   DESCRIPTION: 'Профессиональный ремонт плоской кровли в Иркутске',
-  PHONE: '+7 (XXX) XXX-XX-XX',
+  PHONE: '+7 (3952) 95-05-53',
   EMAIL: 'info@remont-krovli.ru',
   WORK_HOURS: 'Пн-Пт: 8:00 - 20:00',
 };
