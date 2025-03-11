@@ -209,13 +209,34 @@ export const createImageFromCloudinary = async (data: CloudinaryImageData): Prom
   try {
     const token = localStorage.getItem('token');
     
-    const { data: response } = await axios.post(`${API_URL}/images/cloudinary`, data, {
+    const response = await fetch(`${API_URL}/images/cloudinary`, {
+      method: 'POST',
       headers: {
+        'Content-Type': 'application/json',
         'Authorization': token ? `Bearer ${token}` : ''
-      }
+      },
+      body: JSON.stringify(data)
     });
-    
-    return response.image;
+
+    // Улучшенная обработка ошибок сервера
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `Ошибка сервера: ${response.status}`;
+      
+      try {
+        // Пытаемся распарсить JSON-ответ, если он есть
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.message || errorJson.error || errorMessage;
+      } catch (e) {
+        // Если не удалось распарсить, используем текст ответа
+        errorMessage = errorText || errorMessage;
+      }
+      
+      console.error(`Ошибка API (${response.status}): ${errorMessage}`);
+      throw new Error(errorMessage);
+    }
+
+    return await response.json();
   } catch (error) {
     console.error('Ошибка при создании изображения из Cloudinary:', error);
     throw error;

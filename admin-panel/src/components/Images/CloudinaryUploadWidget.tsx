@@ -84,20 +84,31 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
         try {
           setLoading(true);
           
-          // Создаем изображения через API
-          for (const file of uploadedFiles.current) {
+          // Создаем изображения через API с задержкой между запросами
+          for (let i = 0; i < uploadedFiles.current.length; i++) {
+            const file = uploadedFiles.current[i];
             if (file.info && file.info.public_id) {
-              const imageData = {
-                public_id: file.info.public_id,
-                type: type || 'content',
-                section: section || 'general',
-                alt: alt || file.info.original_filename || '',
-                title: imageTitle || file.info.original_filename || '',
-                tags: tags
-              };
-              
-              // Вызываем API для сохранения метаданных
-              await createImageFromCloudinary(imageData);
+              try {
+                const imageData = {
+                  public_id: file.info.public_id,
+                  type: type || 'content',
+                  section: section || 'general',
+                  alt: alt || file.info.original_filename || '',
+                  title: imageTitle || file.info.original_filename || '',
+                  tags: tags
+                };
+                
+                // Вызываем API для сохранения метаданных
+                await createImageFromCloudinary(imageData);
+                
+                // Добавляем задержку между запросами, чтобы избежать 429 ошибки
+                if (i < uploadedFiles.current.length - 1) {
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+              } catch (err) {
+                console.error(`Ошибка при создании изображения из Cloudinary (${i+1}/${uploadedFiles.current.length}):`, err);
+                // Продолжаем выполнение с другими изображениями, не прерываем цикл
+              }
             }
           }
           
