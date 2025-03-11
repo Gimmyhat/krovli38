@@ -59,9 +59,15 @@ services:
       dockerfile: docker/admin/Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_CLOUDINARY_CLOUD_NAME: ${VITE_CLOUDINARY_CLOUD_NAME:-dr0hjlr79}
+        VITE_CLOUDINARY_API_KEY: ${VITE_CLOUDINARY_API_KEY:-586934817968136}
+        VITE_CLOUDINARY_UPLOAD_PRESET: ${VITE_CLOUDINARY_UPLOAD_PRESET:-krovli38_preset}
     restart: always
     environment:
       - VITE_API_URL=${VITE_API_URL:-/api}
+      - VITE_CLOUDINARY_CLOUD_NAME=${VITE_CLOUDINARY_CLOUD_NAME:-dr0hjlr79}
+      - VITE_CLOUDINARY_API_KEY=${VITE_CLOUDINARY_API_KEY:-586934817968136}
+      - VITE_CLOUDINARY_UPLOAD_PRESET=${VITE_CLOUDINARY_UPLOAD_PRESET:-krovli38_preset}
     networks:
       - app-network
 
