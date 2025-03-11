@@ -13,17 +13,15 @@ import settingsRoutes from './routes/settings';
 // @ts-ignore - временная заглушка для маршрутов галереи
 import galleryRoutes from './routes/galleryRoutes';
 import { initializeAdmin } from './scripts/init';
-import * as cloudinaryConfig from './config/cloudinary';
-import { SERVER } from './constants';
+import cloudinaryConfig, { checkCloudinaryConfig } from './config/cloudinary';
+import { SERVER, DATABASE } from './constants';
 import { ensureAllSettings, ensureSetting } from './utils/ensureSettings';
 
 // Загрузка переменных окружения
 dotenv.config();
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://admin:admin_password@mongodb:27017/krovli38?authSource=admin';
-
 console.log('Starting server with configuration:', {
-  mongoUri: MONGODB_URI,
+  mongoUri: DATABASE.URI,
   nodeEnv: SERVER.NODE_ENV,
   port: SERVER.PORT
 });
@@ -96,8 +94,16 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 // Обеспечиваем наличие Upload Preset для Cloudinary
 const setupCloudinary = async () => {
   try {
-    const preset = await cloudinaryConfig.ensureUploadPreset();
-    console.log('Cloudinary Upload Preset настроен успешно:', preset.name);
+    // Проверяем соединение с Cloudinary
+    const isConnected = await checkCloudinaryConfig();
+    if (!isConnected) {
+      console.warn('Соединение с Cloudinary не установлено! Загрузка изображений может не работать.');
+      logger.warn('Cloudinary соединение не установлено');
+    } else {
+      // Настраиваем пресет загрузки
+      const preset = await cloudinaryConfig.ensureUploadPreset();
+      console.log('Cloudinary Upload Preset настроен успешно:', preset.name);
+    }
   } catch (error) {
     console.error('Ошибка при настройке Cloudinary Upload Preset:', error);
     logger.error('Cloudinary Upload Preset ошибка:', { error });

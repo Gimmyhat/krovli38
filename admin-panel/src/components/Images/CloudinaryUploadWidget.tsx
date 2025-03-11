@@ -65,7 +65,20 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
       return;
     }
 
+    // Обработка события инициализации виджета
+    if (result.event === 'queues-start') {
+      console.log('Загрузка файлов начата');
+      setLoading(true);
+    }
+
     if (result.event === 'success') {
+      // Проверяем, содержит ли результат необходимые данные
+      if (!result.info || !result.info.public_id) {
+        console.error('Результат загрузки не содержит public_id:', result);
+        setError('Получены некорректные данные от Cloudinary. Отсутствует public_id для файла.');
+        return;
+      }
+
       // Сохраняем результат загрузки
       uploadedFiles.current.push(result);
       
@@ -93,6 +106,7 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
           for (const file of uploadedFiles.current) {
             if (file.info && file.info.public_id) {
               try {
+                console.log(`Обработка файла: ${file.info.public_id}`);
                 const imageData = {
                   public_id: file.info.public_id,
                   type: type || 'content',
@@ -108,9 +122,11 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
                 
                 while (retries >= 0 && !success) {
                   try {
+                    console.log(`Попытка ${2 - retries + 1} сохранения метаданных для ${file.info.public_id}`);
                     await createImageFromCloudinary(imageData);
                     successfulUploads.push(file.info.original_filename || file.info.public_id);
                     success = true;
+                    console.log(`Успешно сохранены метаданные для ${file.info.public_id}`);
                   } catch (err: any) {
                     console.log(`Попытка ${2 - retries + 1} не удалась для ${file.info.public_id}:`, err.message);
                     

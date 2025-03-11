@@ -10,7 +10,24 @@
     <!-- Улучшенный полифилл для crypto и crypto.randomUUID -->
     <script>
       (function() {
-        if (!window.crypto) window.crypto = {};
+        // Создаем глобальный уникальный идентификатор без использования crypto
+        function generateSimpleUUID() {
+          var d = new Date().getTime();
+          if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+            d += performance.now(); // использует high-precision timer если доступен
+          }
+          return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = (d + Math.random() * 16) % 16 | 0;
+            d = Math.floor(d / 16);
+            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+          });
+        }
+
+        // Поддержка для старых браузеров: определяем crypto если его нет
+        if (!window.crypto) {
+          window.crypto = {};
+          console.log('Добавлен полифилл для window.crypto');
+        }
         
         // Создаем полифилл для getRandomValues, если его нет
         if (!window.crypto.getRandomValues) {
@@ -24,49 +41,43 @@
           console.log('Добавлен полифилл для crypto.getRandomValues');
         }
         
-        // Создаем надежный полифилл для randomUUID в соответствии с RFC 4122
-        if (!window.crypto.randomUUID) {
-          window.crypto.randomUUID = function() {
-            // Функция для генерации 16 случайных байтов
-            function generateRandomBytes() {
-              var bytes = new Uint8Array(16);
-              window.crypto.getRandomValues(bytes);
-              return bytes;
-            }
-            
-            try {
-              // Генерируем случайные байты
-              var bytes = generateRandomBytes();
-              
-              // Устанавливаем биты версии (4) и варианта (RFC 4122)
-              bytes[6] = (bytes[6] & 0x0f) | 0x40;  // версия 4
-              bytes[8] = (bytes[8] & 0x3f) | 0x80;  // вариант RFC 4122
-              
-              // Форматируем байты в строку UUID
-              var uuid = '';
-              for (var i = 0; i < 16; i++) {
-                if (i === 4 || i === 6 || i === 8 || i === 10) {
-                  uuid += '-';
+        // Создаем надежный полифилл для randomUUID
+        if (typeof window.crypto.randomUUID !== 'function') {
+          Object.defineProperty(window.crypto, 'randomUUID', {
+            enumerable: true,
+            configurable: false,
+            writable: false,
+            value: function() {
+              try {
+                // Пытаемся сгенерировать стандартный UUID
+                var bytes = new Uint8Array(16);
+                window.crypto.getRandomValues(bytes);
+                
+                // Устанавливаем биты версии (4) и варианта (RFC 4122)
+                bytes[6] = (bytes[6] & 0x0f) | 0x40;  // версия 4
+                bytes[8] = (bytes[8] & 0x3f) | 0x80;  // вариант RFC 4122
+                
+                // Форматируем байты в строку UUID
+                var result = '';
+                for (var i = 0; i < 16; i++) {
+                  if (i === 4 || i === 6 || i === 8 || i === 10) {
+                    result += '-';
+                  }
+                  var hex = bytes[i].toString(16);
+                  if (hex.length === 1) {
+                    result += '0';
+                  }
+                  result += hex;
                 }
-                var hex = bytes[i].toString(16);
-                if (hex.length === 1) {
-                  uuid += '0';
-                }
-                uuid += hex;
+                
+                return result;
+              } catch (e) {
+                console.error('Ошибка при генерации UUID с использованием crypto:', e);
+                return generateSimpleUUID();
               }
-              
-              return uuid;
-            } catch (e) {
-              console.error('Ошибка при генерации UUID с использованием crypto:', e);
-              
-              // Запасной вариант на случай ошибки
-              return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-              });
             }
-          };
-          console.log('Добавлен улучшенный полифилл для crypto.randomUUID');
+          });
+          console.log('Добавлен надежный полифилл для crypto.randomUUID');
         }
         
         // Проверяем работоспособность
@@ -75,14 +86,16 @@
           console.log('UUID полифилл работает: ', testUUID);
         } catch (e) {
           console.error('Ошибка в полифилле UUID: ', e);
-          // Запасной вариант если основной не работает
-          window.crypto.randomUUID = function() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-              var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-              return v.toString(16);
-            });
-          };
+          // Если основной полифилл не работает, перезаписываем его запасным вариантом
+          Object.defineProperty(window.crypto, 'randomUUID', {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: generateSimpleUUID
+          });
           console.log('Добавлен запасной полифилл для crypto.randomUUID');
+          testUUID = window.crypto.randomUUID();
+          console.log('Запасной UUID полифилл работает: ', testUUID);
         }
       })();
     </script>

@@ -5,15 +5,48 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 /**
- * Настройка подключения к Cloudinary
+ * Настройка Cloudinary API
  * Параметры берутся из переменных окружения
  */
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || '',
+  api_key: process.env.CLOUDINARY_API_KEY || '',
+  api_secret: process.env.CLOUDINARY_API_SECRET || '',
+  secure: true,
+  timeout: parseInt(process.env.CLOUDINARY_TIMEOUT || '60000', 10) // Используем значение из .env или по умолчанию 60 секунд
 });
+
+// Проверка наличия необходимых переменных окружения
+if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+  console.warn('ВНИМАНИЕ: Не все необходимые переменные окружения для Cloudinary установлены.');
+  console.warn('Убедитесь, что в .env файле заданы: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET');
+}
+
+// Проверка конфигурации для раннего обнаружения проблем
+export const checkCloudinaryConfig = async (): Promise<boolean> => {
+  try {
+    // Проверяем, все ли переменные окружения установлены
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      console.warn('ВНИМАНИЕ: Не все необходимые переменные окружения для Cloudinary установлены.');
+      console.warn('Убедитесь, что в .env файле заданы: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET');
+      return false;
+    }
+    
+    // Проверяем соединение через ping API
+    const pingResult = await cloudinary.api.ping();
+    
+    if (pingResult && pingResult.status === 'ok') {
+      console.log('Cloudinary API доступен');
+      return true;
+    } else {
+      console.warn('Cloudinary API вернул неожиданный ответ:', pingResult);
+      return false;
+    }
+  } catch (error) {
+    console.error('Ошибка при проверке соединения с Cloudinary:', error);
+    return false;
+  }
+};
 
 interface UploadOptions {
   folder?: string;
@@ -104,11 +137,11 @@ export const ensureUploadPreset = async (presetName = 'krovli38_preset') => {
 };
 
 // Экспортируем объект cloudinary для доступа к v2 API
-const cloudinaryConfig = {
+const cloudinaryConfigObj = {
   uploadImage,
   deleteImage,
   ensureUploadPreset,
   v2: cloudinary
 };
 
-export default cloudinaryConfig; 
+export default cloudinaryConfigObj; 
