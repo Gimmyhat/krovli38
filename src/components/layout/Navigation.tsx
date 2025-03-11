@@ -9,6 +9,7 @@ const Navigation: React.FC = () => {
   const [logoVersion, setLogoVersion] = useState<number>(Date.now());
   const logoSize = settings.logo_size || 96; // Используем значение из настроек или 96px по умолчанию
   const logoPath = settings.logo_path || IMAGE_PATHS.LOGO; // Используем путь из настроек или из констант
+  const logoMargin = settings.logo_margin !== undefined ? settings.logo_margin : -4; // Отступы логотипа из настроек
 
   // Обновляем версию логотипа при изменении пути
   useEffect(() => {
@@ -22,21 +23,22 @@ const Navigation: React.FC = () => {
 
   return (
     <nav className="bg-black/80 backdrop-blur-md">
-      <div className="container mx-auto px-6 py-4">
+      <div className="container mx-auto px-3 py-2">
         <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-3 text-white">
+          <div className="flex items-center space-x-1 text-white">
             <img 
               src={logoUrl} 
               alt="Кровли38" 
               className="w-auto mix-blend-screen"
               style={{ 
                 height: `${logoSize}px`,
-                filter: 'brightness(1.1)' 
+                filter: 'brightness(1.1)',
+                marginLeft: `${logoMargin}px` // Используем значение отступа из настроек
               }} 
             />
             <span className="text-2xl font-bold">КровляПро</span>
           </div>
-          <div className="flex items-center space-x-8 text-white">
+          <div className="flex items-center space-x-6 text-white">
             {NAV_ITEMS.map((item) => (
               <a 
                 key={item.href}
