@@ -117,25 +117,122 @@ export const getMediaLibraryConfig = (options: MediaLibraryOptions = {}) => {
  */
 export const getUploadWidgetConfig = (options: UploadWidgetOptions = {}) => {
   console.log('Инициализация Upload Widget с параметрами:', {
-    cloudName: CLOUD_NAME,
-    uploadPreset: UPLOAD_PRESET
+    CLOUD_NAME,
+    API_KEY, 
+    options
   });
   
-  // Возвращаем конфигурацию с базовыми настройками
   return {
     cloudName: CLOUD_NAME,
     apiKey: API_KEY,
     uploadPreset: UPLOAD_PRESET,
     multiple: options.multiple ?? true,
     maxFiles: options.maxFiles ?? 10,
+    resourceType: 'auto',
     sources: ['local', 'url', 'camera'],
     showUploadMoreButton: true,
-    tags: options.tags ?? [],
-    resourceType: 'image',
-    clientAllowedFormats: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'],
-    maxFileSize: 5000000, // 5 MB
-    queueDuration: 1000, // Очередь загрузки с задержкой для предотвращения 429
-    ...options,
+    autoMinimize: false,
+    language: 'ru',
+    text: {
+      ru: {
+        menu: {
+          files: 'Мои файлы',
+          web: 'URL адрес',
+          camera: 'Камера',
+          dropbox: 'Dropbox',
+          facebook: 'Facebook',
+          instagram: 'Instagram'
+        },
+        local: {
+          browse: 'Выбрать',
+          dd_title_single: 'Перетащите файл сюда',
+          dd_title_multi: 'Перетащите файлы сюда',
+          drop_title_single: 'Отпустите для загрузки',
+          drop_title_multiple: 'Отпустите для загрузки'
+        }
+      }
+    },
+    styles: {
+      palette: {
+        window: "#FFFFFF",
+        windowBorder: "#90A0B3",
+        tabIcon: "#0094C7",
+        menuIcons: "#5A616A",
+        textDark: "#000000",
+        textLight: "#FFFFFF",
+        link: "#0078FF",
+        action: "#FF620C",
+        inactiveTabIcon: "#0E2F5A",
+        error: "#F44235",
+        inProgress: "#0078FF",
+        complete: "#20B832",
+        sourceBg: "#E4EBF1"
+      }
+    },
+    // Добавляем параметры для контроля загрузки
+    queueOptions: {
+      maxConcurrentUploads: 2, // Ограничиваем количество одновременных загрузок
+      maxUploads: options.maxFiles ?? 10
+    },
+    // Увеличиваем интервал между запросами
+    queueDuration: options.queueDuration ?? 2000, // 2 секунды между загрузками
+    // Добавляем экспоненциальную задержку
+    retrySettings: {
+      maxRetries: 3,
+      minTimeout: 1000,
+      maxTimeout: 10000,
+      factor: 2 // Экспоненциальное увеличение задержки
+    },
+    // Папка для организации файлов
+    folder: options.folder,
+    // Теги для организации и фильтрации
+    tags: options.tags,
+    // Добавляем полифилл для crypto.randomUUID внутри
+    preBoot: function() {
+      if (typeof window.crypto === 'undefined' || typeof window.crypto.randomUUID !== 'function') {
+        console.log('Применяем полифилл для crypto.randomUUID внутри Cloudinary виджета');
+        // Используем приведение типов для обхода проверки TypeScript
+        if (typeof window.crypto === 'undefined') (window as any).crypto = {};
+        
+        if (typeof window.crypto.getRandomValues !== 'function') {
+          // Используем приведение типов для обхода проверки TypeScript
+          (window as any).crypto.getRandomValues = function(array: ArrayBufferView | null) {
+            if (!array) return array;
+            
+            // Безопасное получение длины массива
+            const len = array.byteLength || 0;
+            // Обрабатываем массив как Uint8Array
+            const uint8Array = new Uint8Array(array.buffer, array.byteOffset, len);
+            
+            for (let i = 0; i < len; i++) {
+              uint8Array[i] = Math.floor(Math.random() * 256);
+            }
+            return array;
+          };
+        }
+        
+        if (typeof window.crypto.randomUUID !== 'function') {
+          // Используем приведение типов для обхода проверки TypeScript
+          (window as any).crypto.randomUUID = function(): string {
+            const hexDigits = '0123456789abcdef';
+            let uuid = '';
+            
+            for (let i = 0; i < 36; i++) {
+              if (i === 8 || i === 13 || i === 18 || i === 23) {
+                uuid += '-';
+              } else if (i === 14) {
+                uuid += '4';
+              } else if (i === 19) {
+                uuid += hexDigits.charAt(Math.floor(Math.random() * 4) + 8);
+              } else {
+                uuid += hexDigits.charAt(Math.floor(Math.random() * 16));
+              }
+            }
+            return uuid;
+          };
+        }
+      }
+    }
   };
 };
 

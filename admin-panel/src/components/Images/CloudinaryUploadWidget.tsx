@@ -23,6 +23,16 @@ import cloudinaryConfig, { IMAGE_TYPES, SECTIONS, AVAILABLE_TAGS } from '../../s
 import { createImageFromCloudinary } from '../../api/imageApi';
 import type { CloudinaryUploadWidget, CloudinaryUploadWidgetResult } from '../../types/cloudinary';
 
+// Расширяем глобальный объект Window для безопасного доступа к crypto
+declare global {
+  interface Window {
+    crypto: Crypto & {
+      // Костыль для объявления нестандартной реализации randomUUID
+      randomUUID?: () => string;
+    };
+  }
+}
+
 interface CloudinaryUploadWidgetComponentProps {
   opened: boolean;
   onClose: () => void;
@@ -143,6 +153,21 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
   useEffect(() => {
     if (opened) {
       try {
+        // Проверяем доступность crypto.randomUUID перед использованием Cloudinary
+        if (typeof window.crypto === 'undefined' || typeof window.crypto.randomUUID !== 'function') {
+          console.log('Внедряем полифилл для crypto.randomUUID в компоненте CloudinaryUploadWidget');
+          // Используем приведение типов для обхода проверки TypeScript
+          if (typeof window.crypto === 'undefined') (window as any).crypto = {};
+          
+          // Добавляем полифилл через приведение типов any
+          (window as any).crypto.randomUUID = function() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+              var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+              return v.toString(16);
+            });
+          };
+        }
+        
         // Проверяем доступность Cloudinary
         if (!(window as any).cloudinary) {
           console.error('Cloudinary не доступен. Проверьте, загружены ли скрипты Cloudinary.');
@@ -156,30 +181,37 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
           uploadPreset: cloudinaryConfig.UPLOAD_PRESET
         });
 
-        // Получаем базовую конфигурацию
+        // Получаем базовую конфигурацию с увеличенной задержкой
         const options = cloudinaryConfig.getUploadWidgetConfig({
           multiple,
           maxFiles,
           // Добавляем информацию для организации файлов
           folder: `krovli38/${type || 'content'}`,
           // Если теги указаны, добавляем их
-          tags: tags.length > 0 ? tags : undefined
+          tags: tags.length > 0 ? tags : undefined,
+          // Увеличиваем задержку между запросами
+          queueDuration: 3000 // 3 секунды между загрузками
         });
         
         console.log('Опции для Cloudinary Upload Widget:', options);
         
-        // Создаем виджет с типизацией
-        widgetRef.current = (window as any).cloudinary.createUploadWidget(
-          options,
-          handleUploadResults
-        );
-        
-        // Сразу открываем виджет
-        if (widgetRef.current) {
-          widgetRef.current.open();
-        } else {
-          console.error('Не удалось создать виджет Cloudinary');
-          setError('Не удалось создать виджет загрузки. Проверьте консоль браузера.');
+        // Создаем виджет с типизацией и захватом ошибок
+        try {
+          widgetRef.current = (window as any).cloudinary.createUploadWidget(
+            options,
+            handleUploadResults
+          );
+          
+          // Сразу открываем виджет
+          if (widgetRef.current) {
+            widgetRef.current.open();
+          } else {
+            console.error('Не удалось создать виджет Cloudinary');
+            setError('Не удалось создать виджет загрузки. Проверьте консоль браузера.');
+          }
+        } catch (cloudinaryError) {
+          console.error('Ошибка при создании Cloudinary Upload Widget:', cloudinaryError);
+          setError(`Ошибка при инициализации Cloudinary: ${(cloudinaryError as Error).message || 'неизвестная ошибка'}`);
         }
       } catch (error) {
         console.error('Ошибка при инициализации Cloudinary Upload Widget:', error);

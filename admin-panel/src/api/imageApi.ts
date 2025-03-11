@@ -204,20 +204,109 @@ export interface CloudinaryImageData {
   tags?: string[];
 }
 
+// Утилита для сдерживания запросов (rate limiting)
+const apiRateLimiter = {
+  lastRequestTime: 0,
+  minInterval: 1500, // минимальный интервал между запросами (мс)
+  queue: [] as (() => void)[],
+  processing: false,
+
+  // Выполнить запрос с соблюдением интервала
+  async throttle<T>(fn: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      // Добавляем запрос в очередь
+      this.queue.push(() => {
+        fn().then(resolve).catch(reject);
+      });
+      
+      // Запускаем обработку очереди, если она не запущена
+      if (!this.processing) {
+        this.processQueue();
+      }
+    });
+  },
+
+  // Обработка очереди запросов
+  async processQueue() {
+    if (this.queue.length === 0) {
+      this.processing = false;
+      return;
+    }
+
+    this.processing = true;
+    
+    // Вычисляем, сколько нужно подождать до следующего запроса
+    const now = Date.now();
+    const timeToWait = Math.max(0, this.lastRequestTime + this.minInterval - now);
+    
+    if (timeToWait > 0) {
+      await new Promise(resolve => setTimeout(resolve, timeToWait));
+    }
+    
+    // Выполняем следующий запрос
+    const nextRequest = this.queue.shift();
+    if (nextRequest) {
+      this.lastRequestTime = Date.now();
+      nextRequest();
+    }
+    
+    // Продолжаем обработку очереди
+    setTimeout(() => this.processQueue(), 50);
+  }
+};
+
+// Функция для выполнения запроса с повторными попытками
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+  let lastError: Error | null = null;
+  let delayMs = 1000; // начальная задержка перед повторной попыткой
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      // Выполняем запрос через rate limiter
+      return await apiRateLimiter.throttle(async () => {
+        const response = await fetch(url, options);
+        
+        // Если получен статус 429, делаем повторную попытку
+        if (response.status === 429) {
+          // Извлекаем Retry-After заголовок, если он есть
+          const retryAfter = response.headers.get('Retry-After');
+          const retryDelayMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : delayMs;
+          
+          console.warn(`Получен статус 429 (Too Many Requests), повторная попытка через ${retryDelayMs}ms`);
+          throw new Error('Rate limit exceeded (429)');
+        }
+        
+        return response;
+      });
+    } catch (error) {
+      lastError = error as Error;
+      
+      if (attempt < maxRetries) {
+        console.log(`Попытка ${attempt + 1} не удалась, повтор через ${delayMs}ms`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        delayMs *= 2; // Экспоненциальная задержка
+      }
+    }
+  }
+  
+  throw lastError || new Error('Все попытки запроса завершились неудачно');
+}
+
 // Создание записи изображения на основе публичного ID из Cloudinary
 export const createImageFromCloudinary = async (data: CloudinaryImageData): Promise<ImageData> => {
   try {
     const token = localStorage.getItem('token');
     
-    const response = await fetch(`${API_URL}/images/cloudinary`, {
+    // Используем fetchWithRetry для выполнения запроса с повторными попытками
+    const response = await fetchWithRetry(`${API_URL}/images/cloudinary`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': token ? `Bearer ${token}` : ''
       },
       body: JSON.stringify(data)
-    });
-
+    }, 3); // 3 попытки максимум
+    
     // Улучшенная обработка ошибок сервера
     if (!response.ok) {
       const errorText = await response.text();
@@ -235,7 +324,7 @@ export const createImageFromCloudinary = async (data: CloudinaryImageData): Prom
       console.error(`Ошибка API (${response.status}): ${errorMessage}`);
       throw new Error(errorMessage);
     }
-
+    
     return await response.json();
   } catch (error) {
     console.error('Ошибка при создании изображения из Cloudinary:', error);

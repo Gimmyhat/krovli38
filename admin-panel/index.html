@@ -7,69 +7,190 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.cloudinary.com; frame-src 'self' *.cloudinary.com data: blob:; img-src 'self' data: blob: *.cloudinary.com res.cloudinary.com; connect-src 'self' *.cloudinary.com api.cloudinary.com; style-src 'self' 'unsafe-inline';">
     <title>Админ-панель | Кровли38</title>
-    <!-- Более надежный полифилл для crypto и crypto.randomUUID -->
+    
+    <!-- ВАЖНО: Полифилл для crypto и randomUUID, загружается перед всеми скриптами -->
     <script>
+      // Немедленно выполняем полифилл для crypto
       (function() {
-        // Сначала проверяем наличие объекта crypto
+        // Создаем объект, если он не существует
         if (typeof window.crypto === 'undefined') {
-          window.crypto = {};
-          console.log('Создан полифилл для window.crypto');
+          // Используем Object.defineProperty чтобы полифилл сработал на всех браузерах
+          Object.defineProperty(window, 'crypto', {
+            value: {},
+            writable: true,
+            configurable: true
+          });
+          console.log('Создан полифилл для window.crypto (основной)');
         }
-
-        // Создаем полифилл для getRandomValues, если его нет
+        
+        // Полифилл для getRandomValues
         if (typeof window.crypto.getRandomValues !== 'function') {
-          window.crypto.getRandomValues = function(array) {
-            var len = array.length;
-            for (var i = 0; i < len; i++) {
-              array[i] = Math.floor(Math.random() * 256);
-            }
-            console.log('Использован полифилл для getRandomValues');
-            return array;
-          };
-          console.log('Добавлен полифилл для crypto.getRandomValues');
-        }
-        
-        // Создаем полифилл для randomUUID
-        if (typeof window.crypto.randomUUID !== 'function') {
-          window.crypto.randomUUID = function() {
-            // Используем рекомендуемую реализацию для UUID v4
-            var hexDigits = '0123456789abcdef';
-            var uuid = '';
-            
-            // Генерируем 36 символов для UUID v4
-            for (var i = 0; i < 36; i++) {
-              if (i === 8 || i === 13 || i === 18 || i === 23) {
-                uuid += '-';
-              } else if (i === 14) {
-                uuid += '4'; // версия 4
-              } else if (i === 19) {
-                // 8, 9, a, or b для варианта
-                uuid += hexDigits.charAt(Math.floor(Math.random() * 4) + 8);
-              } else {
-                uuid += hexDigits.charAt(Math.floor(Math.random() * 16));
+          // Используем Object.defineProperty чтобы переопределить свойство
+          Object.defineProperty(window.crypto, 'getRandomValues', {
+            value: function(array) {
+              // Проверка на null и undefined
+              if (!array) return array;
+              
+              try {
+                let length = 0;
+                
+                // Определяем, как получить длину массива
+                if (array.byteLength !== undefined) {
+                  // ArrayBuffer или TypedArray
+                  length = array.byteLength;
+                  // Обрабатываем как Uint8Array для совместимости
+                  var uint8View = new Uint8Array(array.buffer || array, 
+                                               array.byteOffset || 0, 
+                                               length);
+                  
+                  for (var i = 0; i < length; i++) {
+                    uint8View[i] = Math.floor(Math.random() * 256);
+                  }
+                } else if (Array.isArray(array)) {
+                  // Обычный JavaScript массив
+                  length = array.length;
+                  for (var i = 0; i < length; i++) {
+                    array[i] = Math.floor(Math.random() * 256);
+                  }
+                }
+                
+                console.log('Использован полифилл для getRandomValues (основной)');
+                return array;
+              } catch (e) {
+                console.error('Ошибка в полифилле getRandomValues:', e);
+                return array;
               }
-            }
-            
-            console.log('Использован полифилл для randomUUID');
-            return uuid;
-          };
-          console.log('Добавлен полифилл для crypto.randomUUID');
+            },
+            writable: true,
+            configurable: true
+          });
+          console.log('Добавлен полифилл для crypto.getRandomValues (основной)');
         }
         
-        // Проверяем работоспособность функций
-        try {
-          var testArray = new Uint8Array(8);
-          window.crypto.getRandomValues(testArray);
-          var testUUID = window.crypto.randomUUID();
-          console.log('Проверка crypto.randomUUID: ' + testUUID);
-        } catch (e) {
-          console.error('Ошибка при тестировании crypto:', e);
+        // Полифилл для randomUUID
+        if (typeof window.crypto.randomUUID !== 'function') {
+          // Используем Object.defineProperty чтобы переопределить свойство
+          Object.defineProperty(window.crypto, 'randomUUID', {
+            value: function() {
+              try {
+                // Используем более надежную реализацию UUID v4
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                  var r = Math.random() * 16 | 0,
+                      v = c === 'x' ? r : (r & 0x3 | 0x8);
+                  return v.toString(16);
+                });
+              } catch (e) {
+                console.error('Ошибка в полифилле randomUUID:', e);
+                // Запасной вариант, если первый способ не сработал
+                var d = new Date().getTime();
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                  var r = (d + Math.random() * 16) % 16 | 0;
+                  d = Math.floor(d / 16);
+                  return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                });
+              }
+            },
+            writable: true,
+            configurable: true
+          });
+          console.log('Добавлен полифилл для crypto.randomUUID (основной)');
         }
+        
+        // Глобальная переменная для отслеживания
+        window._cryptoPolyfilled = true;
+        
+        // Переопределяем ошибки для отладки
+        var originalConsoleError = console.error;
+        console.error = function() {
+          // Проверяем наличие ошибки crypto.randomUUID
+          if (arguments[0] && typeof arguments[0] === 'string' && 
+              arguments[0].indexOf('crypto.randomUUID') !== -1) {
+            console.log('Перехвачена ошибка crypto.randomUUID, повторное применение полифилла');
+            
+            // Повторно применяем полифилл
+            if (typeof window.crypto === 'undefined') {
+              Object.defineProperty(window, 'crypto', {
+                value: {},
+                writable: true,
+                configurable: true
+              });
+            }
+            
+            Object.defineProperty(window.crypto, 'randomUUID', {
+              value: function() {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                  var r = Math.random() * 16 | 0, 
+                      v = c === 'x' ? r : (r & 0x3 | 0x8);
+                  return v.toString(16);
+                });
+              },
+              writable: true,
+              configurable: true
+            });
+            
+            console.log('Полифилл для crypto.randomUUID принудительно переустановлен');
+          }
+          
+          // Вызываем оригинальную функцию
+          originalConsoleError.apply(console, arguments);
+        };
       })();
     </script>
+    
     <!-- Скрипты Cloudinary -->
     <script src="https://widget.cloudinary.com/v2.0/global/all.js" type="text/javascript"></script>
     <script src="https://media-library.cloudinary.com/global/all.js" type="text/javascript"></script>
+
+    <!-- Дополнительная проверка после загрузки скриптов -->
+    <script>
+      // Выполняем проверку после загрузки Cloudinary скриптов
+      (function() {
+        try {
+          console.log('Проверка статуса полифилла после загрузки Cloudinary');
+          
+          // Тестируем полифилл
+          if (window.crypto && window.crypto.randomUUID) {
+            var testUUID = window.crypto.randomUUID();
+            console.log('crypto.randomUUID успешно работает после загрузки скриптов:', testUUID);
+          } else {
+            console.error('crypto.randomUUID недоступен после загрузки скриптов!');
+            
+            // Повторно применяем полифилл
+            if (typeof window.crypto === 'undefined') {
+              Object.defineProperty(window, 'crypto', {
+                value: {},
+                writable: true,
+                configurable: true
+              });
+            }
+            
+            Object.defineProperty(window.crypto, 'randomUUID', {
+              value: function() {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                  var r = Math.random() * 16 | 0, 
+                      v = c === 'x' ? r : (r & 0x3 | 0x8);
+                  return v.toString(16);
+                });
+              },
+              writable: true,
+              configurable: true
+            });
+            
+            console.log('Полифилл для crypto.randomUUID принудительно переустановлен');
+            
+            // Проверяем еще раз
+            if (window.crypto && window.crypto.randomUUID) {
+              var testUUID2 = window.crypto.randomUUID();
+              console.log('crypto.randomUUID теперь работает:', testUUID2);
+            } else {
+              console.error('КРИТИЧЕСКАЯ ОШИБКА: Не удалось установить полифилл для crypto.randomUUID!');
+            }
+          }
+        } catch (e) {
+          console.error('Ошибка при проверке полифилла после загрузки скриптов:', e);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
