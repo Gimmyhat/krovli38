@@ -1,37 +1,48 @@
-# Base stage
-FROM node:20-alpine AS base
+# Базовый образ с Node.js
+FROM node:18-alpine AS build
 
-# Установка зависимостей для сборки
+# Рабочая директория
+WORKDIR /app
+
+# Установка необходимых пакетов
 RUN apk add --no-cache python3 make g++ git
 
+# Глобальная установка TypeScript
+RUN npm install -g typescript
+
+# Копирование и установка зависимостей
+COPY server/package.json server/package-lock.json ./
+RUN npm ci --quiet
+
+# Копирование файлов проекта
+COPY server/ ./
+
+# Явное указание режима production
+ENV NODE_ENV=production 
+
+# Настройка максимального размера памяти для Node.js
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
+# Сборка с использованием TypeScript
+RUN npx tsc
+
+# Прод образ
+FROM node:18-alpine
+
+# Рабочая директория
 WORKDIR /app
 
-# Development stage
-FROM base AS development
-ENV NODE_ENV=development
-WORKDIR /app
-COPY server/package*.json ./
-RUN npm install
-COPY server/ .
-EXPOSE 3000
-CMD ["npm", "run", "dev"]
-
-# Build stage
-FROM base AS builder
-ENV NODE_ENV=production
-WORKDIR /app
-COPY server/package*.json ./
-RUN npm ci
-COPY server/ .
-RUN npm run build
-
-# Production stage
-FROM node:20-alpine AS production
-WORKDIR /app
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/dist ./dist
+# Копирование только необходимых файлов для production
+COPY --from=build /app/package*.json ./
+COPY --from=build /app/dist ./dist
 COPY docker/server/startup.sh ./startup.sh
-RUN npm ci --only=production && \
+
+# Установка только production зависимостей
+RUN npm ci --quiet --only=production && \
     chmod +x ./startup.sh
+
+# Открываем порт
 EXPOSE 3000
+
+# Запускаем сервер
 CMD ["./startup.sh"] 
