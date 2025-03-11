@@ -6,8 +6,8 @@ services:
     image: mongo
     restart: unless-stopped
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-admin_password}
     volumes:
       - mongodb_data:/data/db
     networks:
@@ -21,24 +21,22 @@ services:
 
   server:
     image: ${DOCKER_REGISTRY}/krovli38-server:${TAG:-latest}
-    build:
-      context: ..
-      dockerfile: ./docker/server/Dockerfile
     restart: unless-stopped
     depends_on:
       - mongodb
     environment:
-      - MONGO_USER=${MONGO_USER}
-      - MONGO_PASSWORD=${MONGO_PASSWORD}
-      - JWT_SECRET=${JWT_SECRET}
+      - MONGO_USER=${MONGO_USER:-admin}
+      - MONGO_PASSWORD=${MONGO_PASSWORD:-admin_password}
+      - JWT_SECRET=${JWT_SECRET:-default_jwt_secret}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - CLOUDINARY_UPLOAD_PRESET=${CLOUDINARY_UPLOAD_PRESET}
     networks:
       - app-network
 
   frontend:
     image: ${DOCKER_REGISTRY}/krovli38-frontend:${TAG:-latest}
-    build:
-      context: ..
-      dockerfile: ./docker/frontend/Dockerfile
     restart: unless-stopped
     depends_on:
       - server
@@ -47,9 +45,6 @@ services:
 
   admin:
     image: ${DOCKER_REGISTRY}/krovli38-admin:${TAG:-latest}
-    build:
-      context: ..
-      dockerfile: ./docker/admin/Dockerfile
     restart: unless-stopped
     depends_on:
       - server
@@ -66,14 +61,15 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d
       - ./nginx/ssl:/etc/nginx/ssl
       - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - frontend
+      - admin
+      - server
     networks:
       - app-network
-      - nginx-proxy
 
 networks:
   app-network:
-    driver: bridge
-  nginx-proxy:
     driver: bridge
 
 volumes:

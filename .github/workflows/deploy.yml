@@ -67,9 +67,59 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DOCKER_REGISTRY,MONGO_USER,MONGO_PASSWORD,JWT_SECRET,CLOUDINARY_CLOUD_NAME,CLOUDINARY_API_KEY,CLOUDINARY_API_SECRET,CLOUDINARY_UPLOAD_PRESET
           script: |
             cd /opt/krovli38
-            docker compose -f docker/docker-compose.yml down
-            docker compose -f docker/docker-compose.yml pull
-            docker compose -f docker/docker-compose.yml up -d
-            docker system prune -f 
+            
+            # Создаем файл .env с переменными окружения
+            echo "DOCKER_REGISTRY=${DOCKER_REGISTRY}" > docker/.env
+            echo "MONGO_USER=${MONGO_USER:-admin}" >> docker/.env
+            echo "MONGO_PASSWORD=${MONGO_PASSWORD:-admin_password}" >> docker/.env
+            echo "JWT_SECRET=${JWT_SECRET:-default_jwt_secret}" >> docker/.env
+            echo "CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}" >> docker/.env
+            echo "CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}" >> docker/.env
+            echo "CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}" >> docker/.env
+            echo "CLOUDINARY_UPLOAD_PRESET=${CLOUDINARY_UPLOAD_PRESET}" >> docker/.env
+            
+            # Остановка контейнеров
+            docker compose -f docker/docker-compose.yml --env-file docker/.env down
+            
+            # Создаем директорию для бэкапов если её нет
+            mkdir -p db_backups
+            
+            # Создаем бэкап базы данных перед обновлением (если MongoDB запущена)
+            if docker ps | grep -q mongodb; then
+              echo "Creating database backup..."
+              BACKUP_NAME="backup_$(date +%Y%m%d_%H%M%S).gz"
+              docker exec mongodb mongodump --uri="mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin_password}@localhost:27017/${MONGO_DB}?authSource=admin" --archive --gzip > "db_backups/$BACKUP_NAME" || echo "Backup failed but continuing..."
+            fi
+            
+            # Подтягиваем новые образы
+            docker compose -f docker/docker-compose.yml --env-file docker/.env pull
+            
+            # Запускаем контейнеры
+            docker compose -f docker/docker-compose.yml --env-file docker/.env up -d
+            
+            # Ждем, пока MongoDB будет готова
+            echo "Waiting for MongoDB to be ready..."
+            sleep 20
+            
+            # Проверяем здоровье сервисов
+            echo "Checking services health..."
+            for i in {1..30}; do
+              if curl -s http://localhost/api > /dev/null; then
+                echo "API is responding"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "API failed to respond"
+              fi
+              echo "Waiting for API... ($i/30)"
+              sleep 2
+            done
+            
+            # Очистка старых образов
+            docker system prune -f
+            
+            # Удаляем старые бэкапы (оставляем последние 5)
+            cd db_backups && ls -t | tail -n +6 | xargs -r rm -- 
