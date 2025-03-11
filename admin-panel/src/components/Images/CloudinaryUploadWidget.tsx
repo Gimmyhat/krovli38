@@ -61,7 +61,7 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
   ) => {
     if (error) {
       console.error('Ошибка Cloudinary Upload Widget:', error);
-      setError('Произошла ошибка при загрузке файлов');
+      setError(`Произошла ошибка при загрузке файлов: ${error.message || 'Неизвестная ошибка'}`);
       return;
     }
 
@@ -83,41 +83,95 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
       if (uploadedFiles.current.length > 0) {
         try {
           setLoading(true);
+          setError(null);
+          
+          // Массив для отслеживания успешно обработанных файлов
+          const successfulUploads: string[] = [];
+          const failedUploads: {name: string, error: string}[] = [];
           
           // Создаем изображения через API
           for (const file of uploadedFiles.current) {
             if (file.info && file.info.public_id) {
-              const imageData = {
-                public_id: file.info.public_id,
-                type: type || 'content',
-                section: section || 'general',
-                alt: alt || file.info.original_filename || '',
-                title: imageTitle || file.info.original_filename || '',
-                tags: tags
-              };
-              
-              // Вызываем API для сохранения метаданных
-              await createImageFromCloudinary(imageData);
+              try {
+                const imageData = {
+                  public_id: file.info.public_id,
+                  type: type || 'content',
+                  section: section || 'general',
+                  alt: alt || file.info.original_filename || '',
+                  title: imageTitle || file.info.original_filename || '',
+                  tags: tags
+                };
+                
+                // Вызываем API для сохранения метаданных с повторными попытками
+                let retries = 2;
+                let success = false;
+                
+                while (retries >= 0 && !success) {
+                  try {
+                    await createImageFromCloudinary(imageData);
+                    successfulUploads.push(file.info.original_filename || file.info.public_id);
+                    success = true;
+                  } catch (err: any) {
+                    console.log(`Попытка ${2 - retries + 1} не удалась для ${file.info.public_id}:`, err.message);
+                    
+                    if (retries === 0) {
+                      throw err;
+                    }
+                    
+                    // Ждем перед повторной попыткой, увеличивая время с каждой попыткой
+                    await new Promise(resolve => setTimeout(resolve, 1500 * (3 - retries)));
+                    retries--;
+                  }
+                }
+              } catch (err: any) {
+                console.error(`Ошибка при сохранении изображения ${file.info.public_id}:`, err);
+                failedUploads.push({
+                  name: file.info.original_filename || file.info.public_id,
+                  error: err.message || 'Неизвестная ошибка'
+                });
+              }
             }
+          }
+          
+          // Отчет о результатах
+          if (successfulUploads.length > 0) {
+            notifications.show({
+              title: 'Успешная загрузка',
+              message: `Успешно загружено и сохранено ${successfulUploads.length} из ${uploadedFiles.current.length} изображений`,
+              color: 'green',
+              icon: <IconCheck size={16} />,
+              autoClose: 5000
+            });
+          }
+          
+          if (failedUploads.length > 0) {
+            // Формируем подробное сообщение об ошибках
+            const errorDetails = failedUploads.map(f => `${f.name}: ${f.error}`).join('\n');
+            setError(`Не удалось сохранить метаданные для ${failedUploads.length} изображений.\n\nПодробности:\n${errorDetails}`);
+            
+            // Показываем модальное окно с ошибками
+            notifications.show({
+              title: 'Ошибка при сохранении',
+              message: `${failedUploads.length} из ${uploadedFiles.current.length} изображений не удалось сохранить. Подробности в модальном окне.`,
+              color: 'red',
+              icon: <IconAlertCircle size={16} />,
+              autoClose: 8000
+            });
           }
           
           // Очищаем временные данные
           uploadedFiles.current = [];
           
-          // Уведомляем и закрываем модальное окно
-          notifications.show({
-            title: 'Успешно',
-            message: 'Все изображения успешно загружены',
-            color: 'green',
-            icon: <IconCheck size={16} />
-          });
-          
           // Вызываем функцию обратного вызова для обновления списка изображений
           onUploadSuccess();
-          onClose();
-        } catch (error) {
+          
+          // Закрываем модальное окно только если все успешно или большинство файлов загружено успешно
+          if (failedUploads.length === 0 || (successfulUploads.length > failedUploads.length * 2)) {
+            onClose();
+          }
+        } catch (error: any) {
           console.error('Ошибка при сохранении изображений:', error);
-          setError('Не удалось сохранить метаданные изображений в БД');
+          setError(`Не удалось сохранить метаданные изображений в БД: ${error.message || 'Неизвестная ошибка'}`);
         } finally {
           setLoading(false);
         }

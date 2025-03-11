@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.cloudinary.com; frame-src 'self' *.cloudinary.com data: blob:; img-src 'self' data: blob: *.cloudinary.com res.cloudinary.com; connect-src 'self' *.cloudinary.com api.cloudinary.com; style-src 'self' 'unsafe-inline';">
     <title>Админ-панель | Кровли38</title>
-    <!-- Более надежный полифилл для crypto и crypto.randomUUID -->
+    <!-- Улучшенный полифилл для crypto и crypto.randomUUID -->
     <script>
       (function() {
         if (!window.crypto) window.crypto = {};
@@ -24,21 +24,65 @@
           console.log('Добавлен полифилл для crypto.getRandomValues');
         }
         
-        // Создаем полифилл для randomUUID
+        // Создаем надежный полифилл для randomUUID в соответствии с RFC 4122
         if (!window.crypto.randomUUID) {
           window.crypto.randomUUID = function() {
-            // Простая версия UUID v4 на основе Math.random
-            function s4() {
-              return Math.floor((1 + Math.random()) * 0x10000)
-                .toString(16)
-                .substring(1);
+            // Функция для генерации 16 случайных байтов
+            function generateRandomBytes() {
+              var bytes = new Uint8Array(16);
+              window.crypto.getRandomValues(bytes);
+              return bytes;
             }
-            return s4() + s4() + '-' + s4() + '-' + 
-              (s4().substr(0,2) + '4' + s4().substr(3,1)) + '-' + 
-              (s4().substr(0,1) + '8' + s4().substr(2,2)) + '-' + 
-              s4() + s4() + s4();
+            
+            try {
+              // Генерируем случайные байты
+              var bytes = generateRandomBytes();
+              
+              // Устанавливаем биты версии (4) и варианта (RFC 4122)
+              bytes[6] = (bytes[6] & 0x0f) | 0x40;  // версия 4
+              bytes[8] = (bytes[8] & 0x3f) | 0x80;  // вариант RFC 4122
+              
+              // Форматируем байты в строку UUID
+              var uuid = '';
+              for (var i = 0; i < 16; i++) {
+                if (i === 4 || i === 6 || i === 8 || i === 10) {
+                  uuid += '-';
+                }
+                var hex = bytes[i].toString(16);
+                if (hex.length === 1) {
+                  uuid += '0';
+                }
+                uuid += hex;
+              }
+              
+              return uuid;
+            } catch (e) {
+              console.error('Ошибка при генерации UUID с использованием crypto:', e);
+              
+              // Запасной вариант на случай ошибки
+              return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+              });
+            }
           };
-          console.log('Добавлен полифилл для crypto.randomUUID');
+          console.log('Добавлен улучшенный полифилл для crypto.randomUUID');
+        }
+        
+        // Проверяем работоспособность
+        try {
+          var testUUID = window.crypto.randomUUID();
+          console.log('UUID полифилл работает: ', testUUID);
+        } catch (e) {
+          console.error('Ошибка в полифилле UUID: ', e);
+          // Запасной вариант если основной не работает
+          window.crypto.randomUUID = function() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+              var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+              return v.toString(16);
+            });
+          };
+          console.log('Добавлен запасной полифилл для crypto.randomUUID');
         }
       })();
     </script>
