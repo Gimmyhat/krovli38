@@ -153,4 +153,34 @@ export const resetSettings = async (group?: string): Promise<{ message: string }
     console.error('Ошибка при сбросе настроек:', error);
     throw error;
   }
+};
+
+/**
+ * Полная реинициализация настроек
+ */
+export const reinitializeSettings = async (): Promise<{ message: string; settings: SiteSettingData[] }> => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('Требуется авторизация');
+    }
+    
+    const response = await fetch(`${API_URL}/settings/reinitialize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Ошибка: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Ошибка при реинициализации настроек:', error);
+    throw error;
+  }
 }; 

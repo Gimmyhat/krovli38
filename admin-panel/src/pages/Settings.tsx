@@ -31,7 +31,7 @@ import {
   IconDeviceFloppy,
   IconArrowBackUp 
 } from '@tabler/icons-react';
-import { SiteSettingData, fetchSettings, updateSettingsGroup, resetSettings } from '../api/settingsApi';
+import { SiteSettingData, fetchSettings, updateSettingsGroup, resetSettings, reinitializeSettings } from '../api/settingsApi';
 import CloudinaryPicker from '../components/Images/CloudinaryPicker';
 
 // Группы настроек для вкладок
@@ -364,7 +364,7 @@ const Settings: React.FC = () => {
     }
   };
   
-  // Функция для инициализации настроек сайта из захардкоженных значений
+  // Функция для инициализации настроек сайта
   const handleInitializeSettings = async () => {
     if (!window.confirm('Эта операция перезапишет все настройки. Вы уверены, что хотите продолжить?')) {
       return;
@@ -373,32 +373,16 @@ const Settings: React.FC = () => {
     setInitializingSettings(true);
     
     try {
-      const token = localStorage.getItem('token');
+      const { message, settings } = await reinitializeSettings();
       
-      if (!token) {
-        throw new Error('Требуется авторизация');
-      }
-      
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/settings/reset`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Ошибка: ${response.status}`);
-      }
-      
-      // После успешной инициализации перезагружаем все настройки
+      // Обновляем состояние компонента
       if (activeTab) {
-        const data = await fetchSettings(activeTab);
-        setSettings(data);
+        const groupSettings = settings.filter(setting => setting.group === activeTab);
+        setSettings(groupSettings);
         
         // Обновляем форму
         const newFormData: Record<string, any> = {};
-        data.forEach(setting => {
+        groupSettings.forEach(setting => {
           newFormData[setting.key] = setting.value;
         });
         setFormData(newFormData);
@@ -406,7 +390,7 @@ const Settings: React.FC = () => {
       
       notifications.show({
         title: 'Успех',
-        message: 'Настройки успешно инициализированы из значений по умолчанию',
+        message: message || 'Настройки успешно инициализированы',
         color: 'green'
       });
     } catch (error) {
@@ -414,7 +398,7 @@ const Settings: React.FC = () => {
       
       notifications.show({
         title: 'Ошибка',
-        message: 'Не удалось инициализировать настройки',
+        message: error instanceof Error ? error.message : 'Не удалось инициализировать настройки',
         color: 'red'
       });
     } finally {

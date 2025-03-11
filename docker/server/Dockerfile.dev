@@ -1,0 +1,21 @@
+FROM node:20-alpine
+
+# Установка зависимостей для сборки
+RUN apk add --no-cache python3 make g++ git
+
+WORKDIR /app
+
+# Копируем package.json и package-lock.json
+COPY package*.json ./
+
+# Устанавливаем зависимости
+RUN npm install
+
+# Копируем исходный код
+COPY . .
+
+# Открываем порт
+EXPOSE 3000
+
+# Запускаем приложение в режиме разработки
+CMD ["npm", "run", "dev"] 

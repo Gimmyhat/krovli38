@@ -130,6 +130,8 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
 
   // Инициализация виджета
   useEffect(() => {
+    let widget: CloudinaryUploadWidget | null = null;
+    
     if (opened) {
       try {
         // Проверяем доступность Cloudinary
@@ -138,12 +140,6 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
           setError('Cloudinary не доступен. Проверьте консоль браузера для деталей.');
           return;
         }
-
-        console.log('Cloudinary настройки:', {
-          cloudName: cloudinaryConfig.CLOUDINARY_CLOUD_NAME,
-          apiKey: cloudinaryConfig.CLOUDINARY_API_KEY,
-          uploadPreset: cloudinaryConfig.CLOUDINARY_UPLOAD_PRESET
-        });
 
         // Получаем базовую конфигурацию
         const options = cloudinaryConfig.getUploadWidgetConfig({
@@ -155,17 +151,17 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
           tags: tags.length > 0 ? tags : undefined
         });
         
-        console.log('Опции для Cloudinary Upload Widget:', options);
-        
         // Создаем виджет с типизацией
-        widgetRef.current = (window as any).cloudinary.createUploadWidget(
+        widget = (window as any).cloudinary.createUploadWidget(
           options,
           handleUploadResults
         );
         
+        widgetRef.current = widget;
+        
         // Сразу открываем виджет
-        if (widgetRef.current) {
-          widgetRef.current.open();
+        if (widget) {
+          widget.open();
         } else {
           console.error('Не удалось создать виджет Cloudinary');
           setError('Не удалось создать виджет загрузки. Проверьте консоль браузера.');
@@ -176,18 +172,19 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
       }
     }
     
-    // Очищаем при размонтировании
+    // Очищаем при размонтировании или закрытии
     return () => {
-      if (widgetRef.current) {
+      if (widget) {
         try {
-          widgetRef.current.close({ quiet: true });
-          widgetRef.current.destroy();
+          widget.close({ quiet: true });
+          widget.destroy();
+          widgetRef.current = null;
         } catch (e) {
           console.error('Ошибка при закрытии Cloudinary Upload Widget:', e);
         }
       }
     };
-  }, [opened]);
+  }, [opened, type, tags, multiple, maxFiles]);
 
   return (
     <Modal

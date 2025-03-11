@@ -1,0 +1,75 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  DOCKER_REGISTRY: gimmyhat
+  MONGO_USER: ${{ secrets.MONGO_USER }}
+  MONGO_PASSWORD: ${{ secrets.MONGO_PASSWORD }}
+  MONGO_DB: krovli38
+  JWT_SECRET: ${{ secrets.JWT_SECRET }}
+  CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+  CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+  CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+  CLOUDINARY_UPLOAD_PRESET: ${{ secrets.CLOUDINARY_UPLOAD_PRESET }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Server
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/server/Dockerfile
+          push: true
+          tags: ${{ env.DOCKER_REGISTRY }}/krovli38-server:latest
+          cache-from: type=registry,ref=${{ env.DOCKER_REGISTRY }}/krovli38-server:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_REGISTRY }}/krovli38-server:buildcache,mode=max
+
+      - name: Build and push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/frontend/Dockerfile
+          push: true
+          tags: ${{ env.DOCKER_REGISTRY }}/krovli38-frontend:latest
+          cache-from: type=registry,ref=${{ env.DOCKER_REGISTRY }}/krovli38-frontend:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_REGISTRY }}/krovli38-frontend:buildcache,mode=max
+
+      - name: Build and push Admin Panel
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/admin/Dockerfile
+          push: true
+          tags: ${{ env.DOCKER_REGISTRY }}/krovli38-admin:latest
+          cache-from: type=registry,ref=${{ env.DOCKER_REGISTRY }}/krovli38-admin:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_REGISTRY }}/krovli38-admin:buildcache,mode=max
+
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /opt/krovli38
+            docker compose -f docker/docker-compose.yml down
+            docker compose -f docker/docker-compose.yml pull
+            docker compose -f docker/docker-compose.yml up -d
+            docker system prune -f 

@@ -2,19 +2,41 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.cloudinary.com; frame-src 'self' *.cloudinary.com data: blob:; img-src 'self' data: blob: *.cloudinary.com res.cloudinary.com; connect-src 'self' *.cloudinary.com api.cloudinary.com; style-src 'self' 'unsafe-inline';">
     <title>Админ-панель | Кровли38</title>
-    <!-- Полифилл для crypto.randomUUID -->
+    <!-- Более надежный полифилл для crypto и crypto.randomUUID -->
     <script>
       (function() {
         if (!window.crypto) window.crypto = {};
+        
+        // Создаем полифилл для getRandomValues, если его нет
+        if (!window.crypto.getRandomValues) {
+          window.crypto.getRandomValues = function(array) {
+            var len = array.length;
+            for (var i = 0; i < len; i++) {
+              array[i] = Math.floor(Math.random() * 256);
+            }
+            return array;
+          };
+          console.log('Добавлен полифилл для crypto.getRandomValues');
+        }
+        
+        // Создаем полифилл для randomUUID
         if (!window.crypto.randomUUID) {
-          window.crypto.randomUUID = function randomUUID() {
-            return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-              (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-            );
+          window.crypto.randomUUID = function() {
+            // Простая версия UUID v4 на основе Math.random
+            function s4() {
+              return Math.floor((1 + Math.random()) * 0x10000)
+                .toString(16)
+                .substring(1);
+            }
+            return s4() + s4() + '-' + s4() + '-' + 
+              (s4().substr(0,2) + '4' + s4().substr(3,1)) + '-' + 
+              (s4().substr(0,1) + '8' + s4().substr(2,2)) + '-' + 
+              s4() + s4() + s4();
           };
           console.log('Добавлен полифилл для crypto.randomUUID');
         }

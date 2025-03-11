@@ -1,35 +1,36 @@
-FROM node:20-alpine
+# Base stage
+FROM node:20-alpine AS base
+
+# Установка зависимостей для сборки
+RUN apk add --no-cache python3 make g++ git
 
 WORKDIR /app
 
-# Install dependencies
-COPY server/package*.json ./
+# Копируем package файлы
+COPY package*.json ./
 
-# Install ALL dependencies including devDependencies
+# Development stage
+FROM base AS development
 ENV NODE_ENV=development
 RUN npm install
+COPY . .
+EXPOSE 3000
+CMD ["npm", "run", "dev"]
 
-# Copy source code and startup script
-COPY server/ .
-COPY docker/server/startup.sh ./startup.sh
-
-# Create logs directory and set permissions
-RUN mkdir -p logs && \
-    chown -R node:node . && \
-    chmod +x ./startup.sh
-
-# Build TypeScript code (включая все скрипты)
+# Build stage
+FROM base AS builder
+ENV NODE_ENV=production
+RUN npm ci
+COPY . .
 RUN npm run build
 
-# Switch to production environment
-ENV NODE_ENV=production
-ENV PORT=3000
-
-# Switch to non-root user
-USER node
-
-# Expose port
+# Production stage
+FROM node:20-alpine AS production
+WORKDIR /app
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/dist ./dist
+COPY docker/server/startup.sh ./startup.sh
+RUN npm ci --only=production && \
+    chmod +x ./startup.sh
 EXPOSE 3000
-
-# Start the server with startup script
 CMD ["./startup.sh"] 

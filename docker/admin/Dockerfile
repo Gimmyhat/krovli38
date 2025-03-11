@@ -1,53 +1,34 @@
-# Build stage
-FROM node:20-alpine AS build
+# Base stage
+FROM node:20-alpine AS base
 
-# Install build dependencies
+# Установка зависимостей для сборки
 RUN apk add --no-cache python3 make g++ git
 
 WORKDIR /app
 
-# Copy package files
-COPY admin-panel/package*.json ./
+# Копируем package файлы
+COPY package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Development stage
+FROM base AS development
+ENV NODE_ENV=development
+RUN npm install
+COPY . .
+EXPOSE 80
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "80"]
 
-# Copy source files
-COPY admin-panel/ .
-
-# Set environment variables for build
+# Build stage
+FROM base AS builder
 ENV NODE_ENV=production
-ENV VITE_API_URL=/api
-ENV VITE_BASE_URL=/admin
-
-# Add polyfill for crypto.randomUUID
-RUN echo "if (!crypto.randomUUID) { crypto.randomUUID = function() { return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)); }; }" > public/polyfill.js
-
-# Build the application
+RUN npm ci
+COPY . .
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
-
-# Remove default nginx static assets
-RUN rm -rf /usr/share/nginx/html/*
-
-# Copy built files from build stage
-COPY --from=build /app/dist /usr/share/nginx/html/admin
-COPY --from=build /app/public/polyfill.js /usr/share/nginx/html/admin/
-
-# Modify index.html to include polyfill
-RUN sed -i '/<head>/a <script src="/admin/polyfill.js"></script>' /usr/share/nginx/html/admin/index.html
-
-# Copy nginx configuration
+FROM nginx:alpine AS production
+RUN rm -rf /usr/share/nginx/html/* && \
+    mkdir -p /usr/share/nginx/html/admin
+COPY --from=builder /app/dist /usr/share/nginx/html/admin
 COPY docker/admin/nginx.conf /etc/nginx/conf.d/default.conf
-
-# Fix permissions
-RUN chown -R nginx:nginx /usr/share/nginx/html && \
-    chmod -R 755 /usr/share/nginx/html
-
-# Expose port
 EXPOSE 80
-
-# Start nginx
 CMD ["nginx", "-g", "daemon off;"] 

@@ -5,7 +5,8 @@ import {
   updateSetting, 
   updateSettingsGroup, 
   resetSettings,
-  clearSettingsCache
+  clearSettingsCache,
+  reinitializeSettings
 } from '../controllers/settingsController';
 import { authenticateJWT, requireAdmin } from '../middleware/auth';
 
@@ -31,5 +32,7 @@ router.put('/group/:group', authenticateJWT, requireAdmin, updateSettingsGroup);
 router.post('/reset', authenticateJWT, requireAdmin, resetSettings);
 // @ts-ignore - временное решение проблем с типами
 router.post('/clear-cache', authenticateJWT, requireAdmin, clearSettingsCache);
+// @ts-ignore - временное решение проблем с типами
+router.post('/reinitialize', authenticateJWT, requireAdmin, reinitializeSettings);
 
 export default router; 

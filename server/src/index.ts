@@ -14,14 +14,16 @@ import settingsRoutes from './routes/settings';
 import galleryRoutes from './routes/galleryRoutes';
 import { initializeAdmin } from './scripts/init';
 import * as cloudinaryConfig from './config/cloudinary';
-import { SERVER, DATABASE } from './constants';
+import { SERVER } from './constants';
 import { ensureAllSettings, ensureSetting } from './utils/ensureSettings';
 
 // Загрузка переменных окружения
 dotenv.config();
 
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://admin:admin_password@mongodb:27017/krovli38?authSource=admin';
+
 console.log('Starting server with configuration:', {
-  mongoUri: DATABASE.URI,
+  mongoUri: MONGODB_URI,
   nodeEnv: SERVER.NODE_ENV,
   port: SERVER.PORT
 });
