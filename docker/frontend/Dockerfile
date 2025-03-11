@@ -8,31 +8,30 @@ WORKDIR /app
 
 # Копируем package файлы
 COPY package*.json ./
-COPY src/package*.json ./src/
 
 # Development stage
 FROM base AS development
 ENV NODE_ENV=development
-WORKDIR /app/src
+WORKDIR /app
 RUN npm install
-COPY ./src .
+COPY . .
 EXPOSE 80
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "80"]
 
 # Build stage
 FROM base AS builder
 ENV NODE_ENV=production
-WORKDIR /app/src
+WORKDIR /app
 RUN npm ci
-COPY ./src .
+COPY . .
 RUN npm run build
 
 # Production stage
 FROM nginx:alpine AS production
 RUN rm -rf /usr/share/nginx/html/* && \
     mkdir -p /usr/share/nginx/html/images
-COPY --from=builder /app/src/dist /usr/share/nginx/html
-COPY --from=builder /app/src/public /usr/share/nginx/html
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/public /usr/share/nginx/html
 COPY docker/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"] 

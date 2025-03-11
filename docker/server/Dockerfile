@@ -6,32 +6,30 @@ RUN apk add --no-cache python3 make g++ git
 
 WORKDIR /app
 
-# Копируем package файлы
-COPY package*.json ./
-COPY server/package*.json ./server/
-
 # Development stage
 FROM base AS development
 ENV NODE_ENV=development
-WORKDIR /app/server
+WORKDIR /app
+COPY server/package*.json ./
 RUN npm install
-COPY ./server .
+COPY server/ .
 EXPOSE 3000
 CMD ["npm", "run", "dev"]
 
 # Build stage
 FROM base AS builder
 ENV NODE_ENV=production
-WORKDIR /app/server
+WORKDIR /app
+COPY server/package*.json ./
 RUN npm ci
-COPY ./server .
+COPY server/ .
 RUN npm run build
 
 # Production stage
 FROM node:20-alpine AS production
 WORKDIR /app
-COPY --from=builder /app/server/package*.json ./
-COPY --from=builder /app/server/dist ./dist
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/dist ./dist
 COPY docker/server/startup.sh ./startup.sh
 RUN npm ci --only=production && \
     chmod +x ./startup.sh
