@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { 
   Box, 
   Button, 
@@ -6,7 +6,8 @@ import {
   Modal, 
   Text,
   Paper,
-  Alert
+  Alert,
+  Stack
 } from '@mantine/core';
 import { 
   IconPhotoPlus,
@@ -15,8 +16,31 @@ import {
 import { notifications } from '@mantine/notifications';
 import cloudinaryConfig from '../../services/cloudinaryConfig';
 import { ImageData } from '../../api/imageApi';
+import { useDisclosure } from '@mantine/hooks';
 
-// Используем типы из глобального типа Window
+/**
+ * Проверка доступности Cloudinary API
+ */
+const checkCloudinaryAvailable = (): boolean => {
+  return typeof window !== 'undefined' && 
+         window.cloudinary !== undefined && 
+         typeof window.cloudinary.createMediaLibrary === 'function';
+};
+
+/**
+ * Проверка поддержки crypto.randomUUID
+ */
+const checkCryptoSupport = (): boolean => {
+  try {
+    return typeof window.crypto !== 'undefined' && 
+           typeof window.crypto.randomUUID === 'function';
+  } catch (error) {
+    console.error('Ошибка при проверке crypto.randomUUID:', error);
+    return false;
+  }
+};
+
+// Типы компонента
 interface CloudinaryMediaLibraryProps {
   opened: boolean;
   onClose: () => void;
@@ -45,128 +69,202 @@ const CloudinaryMediaLibrary: React.FC<CloudinaryMediaLibraryProps> = ({
   resourceType = 'image',
   filterOptions = {}
 }) => {
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mediaLibraryRef = useRef<any>(null);
+  const [isCloudinaryAvailable, setIsCloudinaryAvailable] = useState(false);
+  const [showAdvancedError, { toggle: toggleAdvancedError }] = useDisclosure(false);
 
-  // Функция для преобразования результата Cloudinary в формат ImageData
+  /**
+   * Трансформация результата из Cloudinary в ImageData
+   */
   const transformCloudinaryResult = (result: any): ImageData[] => {
-    if (!result || !result.assets || !Array.isArray(result.assets)) {
+    try {
+      if (!result || !result.assets || !Array.isArray(result.assets) || result.assets.length === 0) {
+        console.error('Некорректные данные от Cloudinary:', result);
+        return [];
+      }
+      
+      // Маппим результаты в формат ImageData
+      return result.assets.map((asset: any) => ({
+        _id: '', // Будет заполнено при сохранении
+        public_id: asset.public_id,
+        url: asset.url,
+        secure_url: asset.secure_url,
+        type: filterOptions.type || 'general',
+        section: filterOptions.section || 'general',
+        alt: asset.context?.alt || '',
+        title: asset.context?.caption || '',
+        width: asset.width,
+        height: asset.height,
+        format: asset.format,
+        tags: asset.tags || [],
+        order: 0,
+        isActive: true,
+        createdAt: asset.created_at || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
+    } catch (err) {
+      console.error('Ошибка при трансформации данных Cloudinary:', err);
+      setError('Ошибка при обработке выбранных изображений');
       return [];
     }
-    
-    return result.assets.map((asset: any) => ({
-      _id: asset.asset_id || asset.public_id,
-      public_id: asset.public_id,
-      url: asset.url,
-      secure_url: asset.secure_url,
-      type: filterOptions.type || 'content',
-      alt: asset.alt || '',
-      title: asset.context?.custom?.caption || '',
-      section: filterOptions.section || 'general',
-      width: asset.width,
-      height: asset.height,
-      format: asset.format,
-      tags: asset.tags || [],
-      order: 0,
-      isActive: true,
-      createdAt: asset.created_at,
-      updatedAt: asset.created_at
-    }));
   };
 
-  // Обработчик выбора изображений
-  const handleSelectImages = (data: any) => {
+  /**
+   * Обработчик выбора изображений
+   */
+  const handleSelectImages = async (data: any) => {
+    if (!data || !data.assets) {
+      setError('Некорректные данные от Cloudinary');
+      return;
+    }
+
     try {
-      const transformedImages = transformCloudinaryResult(data);
+      setLoading(true);
+      setError(null);
       
-      if (transformedImages.length === 0) {
-        setError('Не удалось получить данные выбранных изображений');
-        return;
+      // Трансформируем результаты и создаем записи в БД
+      const transformedImages = transformCloudinaryResult(data);
+      const savedImages: ImageData[] = [];
+      
+      // Последовательно сохраняем каждое изображение с задержкой
+      for (const image of transformedImages) {
+        try {
+          const savedImage = await createImageFromCloudinary({
+            public_id: image.public_id,
+            type: filterOptions.type || 'general',
+            section: filterOptions.section || 'general',
+            alt: image.alt,
+            title: image.title,
+            tags: filterOptions.tags || []
+          });
+          
+          savedImages.push(savedImage);
+          
+          // Добавляем задержку между запросами для предотвращения rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (err) {
+          console.error('Ошибка при сохранении изображения:', err);
+        }
       }
       
-      // Вызываем колбэк с преобразованными данными
-      onSelect(transformedImages);
-      
-      // Закрываем окно и чистим состояние
-      onClose();
-    } catch (error) {
-      console.error('Ошибка при обработке выбранных изображений:', error);
-      setError('Произошла ошибка при обработке выбранных изображений');
+      if (savedImages.length > 0) {
+        onSelect(savedImages);
+        onClose();
+      } else {
+        setError('Не удалось сохранить выбранные изображения');
+      }
+    } catch (err) {
+      console.error('Ошибка при выборе изображений:', err);
+      setError('Произошла ошибка при обработке запроса');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Открываем Media Library когда компонент открыт
+  /**
+   * Проверяем доступность Cloudinary при монтировании
+   */
   useEffect(() => {
-    if (opened) {
-      try {
-        // Проверяем доступность Cloudinary
-        if (!(window as any).cloudinary) {
-          console.error('Cloudinary не доступен. Проверьте, загружены ли скрипты Cloudinary.');
-          setError('Cloudinary не доступен. Проверьте консоль браузера для деталей.');
-          return;
+    const cryptoSupported = checkCryptoSupport();
+    if (!cryptoSupported) {
+      console.warn('Функция crypto.randomUUID не поддерживается в этом браузере.');
+      setError('Ваш браузер не поддерживает необходимые функции. Пожалуйста, обновите браузер.');
+    }
+
+    const cloudinaryAvailable = checkCloudinaryAvailable();
+    setIsCloudinaryAvailable(cloudinaryAvailable);
+    
+    if (!cloudinaryAvailable) {
+      console.error('Cloudinary виджет не найден!');
+      setError('Не удалось загрузить Cloudinary Media Library. Попробуйте обновить страницу.');
+    }
+  }, []);
+
+  /**
+   * Инициализируем и открываем Cloudinary Media Library
+   */
+  useEffect(() => {
+    if (!opened || !isCloudinaryAvailable) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Логируем конфигурацию для отладки
+      console.log('Cloudinary конфигурация:', {
+        cloud_name: cloudinaryConfig.CLOUD_NAME,
+        api_key: cloudinaryConfig.API_KEY
+      });
+
+      // Получаем настройки Cloudinary
+      const mediaLibraryOptions = cloudinaryConfig.getMediaLibraryConfig({
+        multiple,
+        maxFiles,
+        remove_header: true,
+        insert_caption: multiple ? 'Выбрать изображения' : 'Выбрать изображение',
+        search: {
+          expressions: [
+            filterOptions.type ? `resource_type:image AND tags=${filterOptions.type}` : 'resource_type:image'
+          ]
+        },
+        asset: {
+          resource_type: resourceType
         }
+      });
 
-        console.log('Cloudinary настройки:', {
-          cloudName: cloudinaryConfig.CLOUDINARY_CLOUD_NAME,
-          apiKey: cloudinaryConfig.CLOUDINARY_API_KEY
-        });
-
-        // Получаем настройки Cloudinary
-        const options = cloudinaryConfig.getMediaLibraryConfig({
-          multiple,
-          max_files: maxFiles,
-          asset: {
-            resource_type: resourceType
-          }
-        });
-
-        console.log('Опции для Cloudinary Media Library:', options);
-        
-        // Если есть теги, добавляем их в поисковый запрос
-        if (filterOptions.tags && filterOptions.tags.length > 0) {
-          // Используем приведение типов для обхода ограничений TypeScript
-          const optionsWithSearch = options as any;
-          optionsWithSearch.search = optionsWithSearch.search || {};
-          optionsWithSearch.search.expressions = [`tags:${filterOptions.tags.join(' OR tags:')}`];
-        }
-        
-        // Создаем экземпляр Media Library с приведением типов
-        mediaLibraryRef.current = (window as any).cloudinary.createMediaLibrary(
-          options,
-          { 
-            insertHandler: handleSelectImages 
-          }
+      // Создаем и открываем Media Library
+      if (window.cloudinary && typeof window.cloudinary.createMediaLibrary === 'function') {
+        mediaLibraryRef.current = window.cloudinary.createMediaLibrary(
+          mediaLibraryOptions,
+          { insertHandler: handleSelectImages }
         );
         
-        // Показываем виджет
-        if (mediaLibraryRef.current) {
-          mediaLibraryRef.current.show();
-        } else {
-          console.error('Не удалось создать Media Library');
-          setError('Не удалось создать библиотеку медиа. Проверьте консоль браузера.');
-        }
-      } catch (error) {
-        console.error('Ошибка при инициализации Cloudinary Media Library:', error);
-        setError('Не удалось инициализировать Cloudinary Media Library');
+        mediaLibraryRef.current.show();
+      } else {
+        throw new Error('Cloudinary API не доступно');
       }
+    } catch (err) {
+      console.error('Ошибка при инициализации Cloudinary Media Library:', err);
+      setError(`Ошибка при инициализации Cloudinary Media Library: ${err instanceof Error ? err.message : 'Неизвестная ошибка'}`);
+    } finally {
+      setLoading(false);
     }
-    
-    // Закрываем виджет при размонтировании
+
+    // Очищаем при размонтировании
     return () => {
       if (mediaLibraryRef.current) {
         try {
           mediaLibraryRef.current.hide();
-        } catch (e) {
-          console.error('Ошибка при закрытии Cloudinary Media Library:', e);
+        } catch (err) {
+          console.error('Ошибка при закрытии Media Library:', err);
         }
       }
     };
-  }, [opened, multiple, maxFiles, resourceType, filterOptions]);
+  }, [opened, isCloudinaryAvailable, multiple, maxFiles, resourceType, filterOptions]);
 
+  /**
+   * Обработчик закрытия модального окна
+   */
+  const handleClose = () => {
+    if (mediaLibraryRef.current) {
+      try {
+        mediaLibraryRef.current.hide();
+      } catch (err) {
+        console.error('Ошибка при закрытии Media Library:', err);
+      }
+    }
+    onClose();
+  };
+
+  /**
+   * Рендер компонента
+   */
   return (
     <Modal
       opened={opened}
-      onClose={onClose}
+      onClose={handleClose}
       title={title}
       size="xl"
       padding={0}
@@ -179,11 +277,30 @@ const CloudinaryMediaLibrary: React.FC<CloudinaryMediaLibraryProps> = ({
             color="red" 
             mb="md"
           >
-            {error}
-            <Group mt="md">
-              <Button size="xs" onClick={() => setError(null)}>Попробовать снова</Button>
-              <Button size="xs" variant="subtle" onClick={onClose}>Закрыть</Button>
-            </Group>
+            <Stack>
+              <Text>{error}</Text>
+              {showAdvancedError && (
+                <Text size="sm">
+                  Cloudinary доступен: {isCloudinaryAvailable ? 'Да' : 'Нет'}<br />
+                  crypto.randomUUID поддерживается: {checkCryptoSupport() ? 'Да' : 'Нет'}
+                </Text>
+              )}
+              <Button size="xs" onClick={toggleAdvancedError} variant="subtle">
+                {showAdvancedError ? 'Скрыть подробности' : 'Показать подробности'}
+              </Button>
+            </Stack>
+          </Alert>
+        )}
+        
+        {!isCloudinaryAvailable && !error && (
+          <Alert 
+            title="Загрузка Media Library..." 
+            color="blue" 
+            mb="md" 
+            icon={<IconAlertCircle size={16} />}
+          >
+            <Text>Ожидание загрузки Cloudinary Media Library. Если ничего не происходит, 
+            попробуйте обновить страницу.</Text>
           </Alert>
         )}
         

@@ -4,9 +4,37 @@
 import { IMAGE_CONFIG, SETTINGS_GROUPS } from '../constants';
 
 // Настройки из переменных окружения
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
-const CLOUDINARY_API_KEY = import.meta.env.VITE_CLOUDINARY_API_KEY || '';
-const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'krovli38_preset';
+const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+const API_KEY = import.meta.env.VITE_CLOUDINARY_API_KEY;
+const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+// Типы для опций
+interface MediaLibraryOptions {
+  multiple?: boolean;
+  maxFiles?: number;
+  [key: string]: any;
+}
+
+interface UploadWidgetOptions {
+  multiple?: boolean;
+  maxFiles?: number;
+  tags?: string[];
+  [key: string]: any;
+}
+
+// Проверка переменных окружения
+if (!CLOUD_NAME || !API_KEY || !UPLOAD_PRESET) {
+  console.error('Отсутствуют необходимые переменные окружения для Cloudinary!', {
+    CLOUD_NAME,
+    API_KEY,
+    UPLOAD_PRESET
+  });
+}
+
+// Экспорт настроек для совместимости с существующим кодом
+export const CLOUDINARY_CLOUD_NAME = CLOUD_NAME;
+export const CLOUDINARY_API_KEY = API_KEY;
+export const CLOUDINARY_UPLOAD_PRESET = UPLOAD_PRESET;
 
 // Логирование настроек при запуске (в dev режиме)
 if (import.meta.env.DEV) {
@@ -63,69 +91,58 @@ export const AVAILABLE_TAGS = [
 ];
 
 /**
- * Основная конфигурация для Media Library
+ * Получить конфигурацию для Media Library
  */
-export const getMediaLibraryConfig = (options = {}) => {
+export const getMediaLibraryConfig = (options: MediaLibraryOptions = {}) => {
+  console.log('Инициализация Media Library с параметрами:', {
+    cloud_name: CLOUD_NAME,
+    api_key: API_KEY
+  });
+  
+  // Возвращаем конфигурацию с базовыми настройками
   return {
-    cloud_name: IMAGE_CONFIG.CLOUD_NAME,
-    api_key: IMAGE_CONFIG.API_KEY,
-    multiple: false,
-    remove_header: false,
-    max_files: 1,
+    cloud_name: CLOUD_NAME,
+    api_key: API_KEY,
+    multiple: options.multiple ?? false,
+    remove_header: true,
+    max_files: options.maxFiles ?? 10,
     insert_caption: 'Выбрать',
     default_transformations: [],
-    ...options
+    ...options,
   };
 };
 
 /**
- * Конфигурация для Upload Widget
+ * Получить конфигурацию для Upload Widget
  */
-export const getUploadWidgetConfig = (options = {}) => {
+export const getUploadWidgetConfig = (options: UploadWidgetOptions = {}) => {
+  console.log('Инициализация Upload Widget с параметрами:', {
+    cloudName: CLOUD_NAME,
+    uploadPreset: UPLOAD_PRESET
+  });
+  
+  // Возвращаем конфигурацию с базовыми настройками
   return {
-    cloudName: IMAGE_CONFIG.CLOUD_NAME,
-    apiKey: IMAGE_CONFIG.API_KEY,
-    uploadPreset: IMAGE_CONFIG.UPLOAD_PRESET,
-    sources: UPLOAD_SOURCES,
-    multiple: true,
-    folder: 'krovli38',
+    cloudName: CLOUD_NAME,
+    apiKey: API_KEY,
+    uploadPreset: UPLOAD_PRESET,
+    multiple: options.multiple ?? true,
+    maxFiles: options.maxFiles ?? 10,
+    sources: ['local', 'url', 'camera'],
+    showUploadMoreButton: true,
+    tags: options.tags ?? [],
     resourceType: 'image',
-    clientAllowedFormats: IMAGE_CONFIG.ACCEPTED_TYPES.map(type => type.replace('.', '')),
-    maxImageFileSize: IMAGE_CONFIG.MAX_SIZE,
-    maxVideoFileSize: IMAGE_CONFIG.MAX_SIZE * 10, // 10 times larger for videos
-    language: 'ru',
-    styles: {
-      palette: {
-        window: '#FFFFFF',
-        windowBorder: '#90A0B3',
-        tabIcon: '#0078FF',
-        menuIcons: '#5A616A',
-        textDark: '#000000',
-        textLight: '#FFFFFF',
-        link: '#0078FF',
-        action: '#FF620C',
-        inactiveTabIcon: '#0E2F5A',
-        error: '#F44235',
-        inProgress: '#0078FF',
-        complete: '#20B832',
-        sourceBg: '#E4EBF1'
-      },
-      fonts: {
-        default: null,
-        "sans-serif": {
-          url: null,
-          active: true
-        }
-      }
-    },
-    ...options
+    clientAllowedFormats: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'],
+    maxFileSize: 5000000, // 5 MB
+    queueDuration: 1000, // Очередь загрузки с задержкой для предотвращения 429
+    ...options,
   };
 };
 
 export default {
-  CLOUD_NAME: IMAGE_CONFIG.CLOUD_NAME,
-  API_KEY: IMAGE_CONFIG.API_KEY,
-  UPLOAD_PRESET: IMAGE_CONFIG.UPLOAD_PRESET,
+  CLOUD_NAME,
+  API_KEY,
+  UPLOAD_PRESET,
   getMediaLibraryConfig,
   getUploadWidgetConfig
 }; 
