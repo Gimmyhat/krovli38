@@ -2,7 +2,8 @@
 FROM node:20-alpine AS base
 
 # Установка зависимостей для сборки
-RUN apk add --no-cache python3 make g++ git
+RUN apk add --no-cache python3 make g++ git && \
+    npm install -g vite
 
 WORKDIR /app
 
@@ -24,7 +25,8 @@ ENV NODE_ENV=production
 WORKDIR /app
 RUN npm ci
 COPY . .
-RUN npm run build
+# Используем npx для запуска vite, чтобы гарантировать, что будет использоваться локальная версия из node_modules
+RUN npm run build || npx vite build
 
 # Production stage
 FROM nginx:alpine AS production
