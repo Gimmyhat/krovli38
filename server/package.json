@@ -13,8 +13,7 @@
     "add-logo-size": "ts-node src/scripts/addLogoSizeSetting.ts",
     "add-logo-margin": "ts-node src/scripts/addLogoMarginSetting.ts",
     "show-settings": "ts-node src/scripts/showSettings.ts",
-    "update-logo-path": "ts-node src/scripts/updateLogoPath.ts",
-    "test-cloudinary": "ts-node src/scripts/testCloudinary.ts"
+    "update-logo-path": "ts-node src/scripts/updateLogoPath.ts"
   },
   "keywords": [],
   "author": "",

@@ -1,14 +1,12 @@
 import mongoose from 'mongoose';
 import { logger } from '../utils/logger';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://admin:admin_password@mongodb:27017/krovli38?authSource=admin';
-
 export const connectDB = async () => {
   try {
     logger.info('Подключение к MongoDB...');
-    console.log('Connecting to MongoDB with URI:', MONGODB_URI);
+    console.log('Connecting to MongoDB with URI:', process.env.MONGODB_URI);
     
-    await mongoose.connect(MONGODB_URI, {
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://mongodb:27017/krovli38', {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     });

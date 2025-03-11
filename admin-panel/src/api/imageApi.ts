@@ -208,59 +208,17 @@ export interface CloudinaryImageData {
 export const createImageFromCloudinary = async (data: CloudinaryImageData): Promise<ImageData> => {
   try {
     const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Требуется авторизация');
-    }
-    
-    console.log('Отправка данных на сервер:', JSON.stringify(data));
     
     const { data: response } = await axios.post(`${API_URL}/images/cloudinary`, data, {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      // Увеличиваем таймаут для медленных соединений
-      timeout: 30000
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
     });
     
-    console.log('Успешный ответ сервера:', response);
-    
     return response.image;
-  } catch (error: any) {
+  } catch (error) {
     console.error('Ошибка при создании изображения из Cloudinary:', error);
-    
-    // Добавляем подробную информацию об ошибке для отладки
-    if (error.response) {
-      // Сервер вернул ответ с ошибкой
-      console.error('Статус ошибки:', error.response.status);
-      console.error('Данные ошибки:', error.response.data);
-      
-      if (error.response.status === 401) {
-        throw new Error('Ошибка авторизации. Пожалуйста, войдите снова.');
-      } else if (error.response.status === 409) {
-        // Изображение уже существует
-        console.warn('Изображение уже существует в базе данных');
-        if (error.response.data && error.response.data.image) {
-          return error.response.data.image;
-        }
-        throw new Error('Изображение уже существует в базе данных.');
-      } else if (error.response.status === 429) {
-        throw new Error('Слишком много запросов. Пожалуйста, подождите и попробуйте снова через минуту.');
-      } else if (error.response.status >= 500) {
-        throw new Error(`Ошибка сервера (${error.response.status}): ${error.response.data?.error || 'Неизвестная ошибка'}. Пожалуйста, попробуйте позже.`);
-      } else {
-        // Другие ошибки
-        throw new Error(`Ошибка (${error.response.status}): ${error.response.data?.error || error.message || 'Неизвестная ошибка'}`);
-      }
-    } else if (error.request) {
-      // Запрос был сделан, но ответ не получен
-      console.error('Нет ответа от сервера:', error.request);
-      throw new Error('Нет ответа от сервера. Проверьте подключение к интернету и доступность API.');
-    } else {
-      // Ошибка при настройке запроса
-      console.error('Ошибка настройки запроса:', error.message);
-      throw new Error(`Ошибка запроса: ${error.message || 'Неизвестная ошибка'}`);
-    }
+    throw error;
   }
 };
 

@@ -1,13 +1,15 @@
 # Main docker-compose configuration for krovli38 project
 # Includes frontend, admin panel, backend server, MongoDB, and Nginx reverse proxy
 
+# Базовая конфигурация для всех окружений
 services:
   mongodb:
-    image: mongo
-    restart: unless-stopped
+    image: mongo:latest
+    restart: always
     environment:
       - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:-admin}
       - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-admin_password}
+      - MONGO_INITDB_DATABASE=${MONGO_DB:-krovli38}
     volumes:
       - mongodb_data:/data/db
     networks:
@@ -20,40 +22,58 @@ services:
       start_period: 30s
 
   server:
-    image: ${DOCKER_REGISTRY}/krovli38-server:${TAG:-latest}
-    restart: unless-stopped
-    depends_on:
-      - mongodb
+    image: ${DOCKER_REGISTRY:-gimmyhat}/krovli38-server:${TAG:-latest}
+    build:
+      context: ..
+      dockerfile: docker/server/Dockerfile
+      args:
+        NODE_ENV: ${NODE_ENV:-production}
+    restart: always
     environment:
-      - MONGO_USER=${MONGO_USER:-admin}
-      - MONGO_PASSWORD=${MONGO_PASSWORD:-admin_password}
-      - JWT_SECRET=${JWT_SECRET:-default_jwt_secret}
-      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
-      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
-      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
-      - CLOUDINARY_UPLOAD_PRESET=${CLOUDINARY_UPLOAD_PRESET}
+      - MONGODB_URI=mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin_password}@mongodb:27017/${MONGO_DB:-krovli38}?authSource=admin
+      - NODE_ENV=${NODE_ENV:-production}
+      - JWT_SECRET=${JWT_SECRET:-your_super_secret_key_for_jwt_tokens_krovli38}
     networks:
       - app-network
+    depends_on:
+      mongodb:
+        condition: service_healthy
 
   frontend:
-    image: ${DOCKER_REGISTRY}/krovli38-frontend:${TAG:-latest}
-    restart: unless-stopped
-    depends_on:
-      - server
+    image: ${DOCKER_REGISTRY:-gimmyhat}/krovli38-frontend:${TAG:-latest}
+    build:
+      context: ..
+      dockerfile: docker/frontend/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    restart: always
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-/api}
     networks:
       - app-network
 
   admin:
-    image: ${DOCKER_REGISTRY}/krovli38-admin:${TAG:-latest}
-    restart: unless-stopped
-    depends_on:
-      - server
+    image: ${DOCKER_REGISTRY:-gimmyhat}/krovli38-admin:${TAG:-latest}
+    build:
+      context: ..
+      dockerfile: docker/admin/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_CLOUDINARY_CLOUD_NAME: ${VITE_CLOUDINARY_CLOUD_NAME:-dr0hjlr79}
+        VITE_CLOUDINARY_API_KEY: ${VITE_CLOUDINARY_API_KEY:-586934817968136}
+        VITE_CLOUDINARY_UPLOAD_PRESET: ${VITE_CLOUDINARY_UPLOAD_PRESET:-krovli38_preset}
+    restart: always
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-/api}
+      - VITE_CLOUDINARY_CLOUD_NAME=${VITE_CLOUDINARY_CLOUD_NAME:-dr0hjlr79}
+      - VITE_CLOUDINARY_API_KEY=${VITE_CLOUDINARY_API_KEY:-586934817968136}
+      - VITE_CLOUDINARY_UPLOAD_PRESET=${VITE_CLOUDINARY_UPLOAD_PRESET:-krovli38_preset}
     networks:
       - app-network
 
   nginx:
     image: nginx:alpine
-    restart: unless-stopped
+    restart: always
     ports:
       - '80:80'
       - '443:443'
@@ -61,12 +81,12 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d
       - ./nginx/ssl:/etc/nginx/ssl
       - ./nginx/logs:/var/log/nginx
+    networks:
+      - app-network
     depends_on:
       - frontend
       - admin
       - server
-    networks:
-      - app-network
 
 networks:
   app-network:

@@ -338,155 +338,52 @@ export const createFromCloudinary = async (req: Request, res: Response) => {
   try {
     const { public_id, type, alt, title, section, tags } = req.body;
 
-    // Добавляем подробное логирование для отладки
-    console.log('Получены данные изображения для создания:', { public_id, type, section });
-
     // Проверяем наличие public_id
     if (!public_id) {
       return res.status(400).json({ error: 'Не указан public_id изображения' });
     }
 
-    // Проверяем настройки Cloudinary
-    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-      console.error('Не заданы переменные окружения Cloudinary');
-      return res.status(500).json({ 
-        error: 'Ошибка конфигурации Cloudinary',
-        details: 'Не настроены ключи доступа к Cloudinary'
+    // Проверяем, существует ли уже изображение с таким public_id
+    const existingImage = await Image.findOne({ public_id });
+    if (existingImage) {
+      return res.status(409).json({ 
+        error: 'Изображение с таким public_id уже существует',
+        image: existingImage 
       });
-    }
-
-    // Пробуем получить изображение из нашей БД (на случай параллельных запросов)
-    try {
-      const existingImage = await Image.findOne({ public_id });
-      if (existingImage) {
-        return res.status(409).json({ 
-          error: 'Изображение с таким public_id уже существует',
-          image: existingImage 
-        });
-      }
-    } catch (dbError: any) {
-      console.error('Ошибка при проверке наличия изображения:', dbError);
-      // Продолжаем выполнение - если была ошибка на этом этапе, 
-      // возможно изображения нет в БД, поэтому пробуем его создать
     }
 
     // Получаем информацию о ресурсе из Cloudinary
-    try {
-      console.log(`Запрашиваем данные из Cloudinary для public_id: ${public_id}`);
-      const result = await cloudinaryConfig.v2.api.resource(public_id);
-      
-      if (!result || !result.url) {
-        console.error('Cloudinary вернул некорректные данные:', result);
-        return res.status(500).json({
-          error: 'Некорректные данные от Cloudinary API',
-          details: 'Не удалось получить URL изображения'
-        });
-      }
-      
-      console.log('Получена информация из Cloudinary:', result.public_id);
-      
-      // Создаем запись в MongoDB
-      const newImage = new Image({
-        public_id,
-        url: result.url,
-        secure_url: result.secure_url,
-        type: type || 'content',
-        alt: alt || '',
-        title: title || '',
-        section: section || 'general',
-        width: result.width,
-        height: result.height,
-        format: result.format,
-        size: result.bytes,
-        tags: tags || [],
-      });
+    const result = await cloudinaryConfig.v2.api.resource(public_id);
 
-      // Добавляем логирование перед сохранением
-      console.log('Сохраняем изображение в БД:', { 
-        public_id: newImage.public_id,
-        type: newImage.type,
-        section: newImage.section
-      });
+    // Создаем запись в MongoDB
+    const newImage = new Image({
+      public_id,
+      url: result.url,
+      secure_url: result.secure_url,
+      type: type || 'content',
+      alt: alt || '',
+      title: title || '',
+      section: section || 'general',
+      width: result.width,
+      height: result.height,
+      format: result.format,
+      size: result.bytes,
+      tags: tags || [],
+    });
 
-      try {
-        // Сохраняем в БД
-        await newImage.save();
+    // Сохраняем в БД
+    await newImage.save();
 
-        // Возвращаем результат
-        res.status(201).json({
-          message: 'Изображение успешно добавлено',
-          image: newImage
-        });
-      } catch (saveError: any) {
-        console.error('Ошибка при сохранении изображения в БД:', saveError);
-        
-        // Определяем тип ошибки
-        if (saveError.name === 'ValidationError') {
-          // Ошибка валидации mongoose
-          const validationErrors = Object.keys(saveError.errors)
-            .map(field => `${field}: ${saveError.errors[field].message}`)
-            .join(', ');
-          return res.status(400).json({
-            error: 'Ошибка валидации данных изображения',
-            details: validationErrors
-          });
-        } else if (saveError.code === 11000) {
-          // Пытаемся получить существующее изображение чтобы вернуть его
-          try {
-            const existingImage = await Image.findOne({ public_id });
-            if (existingImage) {
-              return res.status(409).json({ 
-                error: 'Изображение с таким public_id уже существует',
-                image: existingImage 
-              });
-            }
-          } catch (findError) {
-            // Игнорируем ошибку поиска, возвращаем стандартный ответ
-          }
-          
-          return res.status(409).json({
-            error: 'Изображение с таким public_id уже существует',
-            details: saveError.message
-          });
-        }
-        
-        // Общая ошибка сохранения
-        return res.status(500).json({
-          error: 'Ошибка при сохранении изображения в базу данных',
-          details: saveError.message || 'Неизвестная ошибка сохранения'
-        });
-      }
-    } catch (cloudinaryError: any) {
-      console.error('Ошибка при получении данных из Cloudinary:', cloudinaryError);
-      
-      // Добавляем подробности Cloudinary ошибки
-      let errorStatus = 500;
-      let errorDetails = cloudinaryError.message || 'Неизвестная ошибка Cloudinary API';
-      
-      if (cloudinaryError.http_code) {
-        errorStatus = cloudinaryError.http_code >= 400 && cloudinaryError.http_code < 600 
-          ? cloudinaryError.http_code 
-          : 500;
-        errorDetails += ` (HTTP ${cloudinaryError.http_code})`;
-      }
-      
-      if (cloudinaryError.error && typeof cloudinaryError.error === 'object') {
-        errorDetails += ` - ${JSON.stringify(cloudinaryError.error)}`;
-      }
-      
-      return res.status(errorStatus).json({
-        error: 'Ошибка при получении данных из Cloudinary',
-        details: errorDetails,
-        resourceId: public_id
-      });
-    }
+    // Возвращаем результат
+    res.status(201).json({
+      message: 'Изображение успешно добавлено',
+      image: newImage
+    });
   } catch (error: any) {
     console.error('Ошибка при создании изображения из Cloudinary:', error);
-    
-    // Общая ошибка
     res.status(500).json({
       error: 'Ошибка при создании изображения',
-      details: error.message || 'Неизвестная ошибка сервера'
+      details: error.message
     });
   }
 };

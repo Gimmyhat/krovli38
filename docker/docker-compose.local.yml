@@ -5,58 +5,35 @@ services:
       - '27017:27017'
     volumes:
       - mongodb_data_local:/data/db
-    command: mongod --quiet --logpath /dev/null # Отключаем логи для разработки
 
   server:
     build:
-      context: ../server
-      dockerfile: ../docker/server/Dockerfile
-      target: development
-    command: npm run dev
+      args:
+        NODE_ENV: development
     environment:
       - NODE_ENV=development
-      - DEBUG=true
-      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
-      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
-      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
-      - CLOUDINARY_UPLOAD_PRESET=${CLOUDINARY_UPLOAD_PRESET}
     volumes:
-      - ../server:/app
-      - /app/node_modules
+      - ../server/src:/app/src
+      - ../server/package.json:/app/package.json
+      - ../server/tsconfig.json:/app/tsconfig.json
 
   frontend:
-    build:
-      context: ..
-      dockerfile: docker/frontend/Dockerfile
-      target: development
-    environment:
-      - NODE_ENV=development
-      - VITE_API_URL=${VITE_API_URL}
     volumes:
-      - ../:/app
-      - /app/node_modules
+      - ../src:/app/src
+      - ../public:/app/public
+      - ../package.json:/app/package.json
+      - ../vite.config.ts:/app/vite.config.ts
 
   admin:
-    build:
-      context: ../admin-panel
-      dockerfile: ../docker/admin/Dockerfile
-      target: development
-    environment:
-      - NODE_ENV=development
-      - VITE_API_URL=${VITE_API_URL}
-      - VITE_CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
-      - VITE_CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
-      - VITE_CLOUDINARY_UPLOAD_PRESET=${CLOUDINARY_UPLOAD_PRESET}
     volumes:
-      - ../admin-panel:/app
-      - /app/node_modules
+      - ../admin-panel/src:/app/src
+      - ../admin-panel/public:/app/public
+      - ../admin-panel/package.json:/app/package.json
+      - ../admin-panel/vite.config.ts:/app/vite.config.ts
 
   nginx:
     ports:
-      - "80:80"
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/logs:/var/log/nginx
+      - '80:80'
 
 volumes:
   mongodb_data_local: 

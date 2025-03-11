@@ -1,39 +1,53 @@
-# Базовый образ с Node.js
-FROM node:18-alpine AS build
+# Build stage
+FROM node:20-alpine AS build
 
-# Рабочая директория
-WORKDIR /app
-
-# Установка необходимых пакетов
+# Install build dependencies
 RUN apk add --no-cache python3 make g++ git
 
-# Копирование и установка зависимостей
-COPY admin-panel/package.json admin-panel/package-lock.json ./
-RUN npm ci --quiet
+WORKDIR /app
 
-# Копирование файлов проекта
-COPY admin-panel/ ./
+# Copy package files
+COPY admin-panel/package*.json ./
 
-# Явное указание режима production
-ENV NODE_ENV=production 
+# Install dependencies
+RUN npm ci
 
-# Настройка максимального размера памяти для Node.js
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+# Copy source files
+COPY admin-panel/ .
 
-# Предельно простая сборка
+# Set environment variables for build
+ENV NODE_ENV=production
+ENV VITE_API_URL=/api
+ENV VITE_BASE_URL=/admin
+
+# Add polyfill for crypto.randomUUID
+RUN echo "if (!crypto.randomUUID) { crypto.randomUUID = function() { return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)); }; }" > public/polyfill.js
+
+# Build the application
 RUN npm run build
 
-# Прод образ на основе Nginx
+# Production stage
 FROM nginx:alpine
 
-# Копирование собранных файлов
-COPY --from=build /app/dist /usr/share/nginx/html/admin
+# Remove default nginx static assets
+RUN rm -rf /usr/share/nginx/html/*
 
-# Копирование конфигурации Nginx
+# Copy built files from build stage
+COPY --from=build /app/dist /usr/share/nginx/html/admin
+COPY --from=build /app/public/polyfill.js /usr/share/nginx/html/admin/
+
+# Modify index.html to include polyfill
+RUN sed -i '/<head>/a <script src="/admin/polyfill.js"></script>' /usr/share/nginx/html/admin/index.html
+
+# Copy nginx configuration
 COPY docker/admin/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Открываем порт
+# Fix permissions
+RUN chown -R nginx:nginx /usr/share/nginx/html && \
+    chmod -R 755 /usr/share/nginx/html
+
+# Expose port
 EXPOSE 80
 
-# Запускаем Nginx
+# Start nginx
 CMD ["nginx", "-g", "daemon off;"] 

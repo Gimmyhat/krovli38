@@ -1,40 +1,53 @@
-# Базовый образ с Node.js
-FROM node:18-alpine AS build
+# Build stage
+FROM node:20-alpine AS build
 
-# Рабочая директория
+# Install build dependencies
+RUN apk add --no-cache python3 make g++ git && \
+    npm install -g typescript@5.2.2 vite@4.5.0
+
 WORKDIR /app
 
-# Установка необходимых пакетов
-RUN apk add --no-cache python3 make g++ git
+# Copy package files
+COPY package*.json ./
 
-# Копирование и установка зависимостей
-COPY package.json package-lock.json ./
-RUN npm ci --quiet
+# Install ALL dependencies with development packages
+ENV NODE_ENV=development
+RUN npm ci && \
+    npm install @rollup/rollup-linux-x64-musl
 
-# Копирование файлов проекта
+# Install specific esbuild version for Linux
+RUN npm install --platform=linux --arch=x64 esbuild@0.18.20 @esbuild/linux-x64@0.18.20
+
+# Copy source files
 COPY . .
 
-# Явное указание режима production
-ENV NODE_ENV=production 
+# Show debug info
+RUN ls -la && \
+    node --version && \
+    npm --version
 
-# Настройка максимального размера памяти для Node.js
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+# Set production environment for build
+ENV NODE_ENV=production
+ENV VITE_API_URL=/api
 
-# Предельно простая сборка
-RUN npm run build
+# Clean dist directory and build the application
+RUN rm -rf dist && \
+    npm run build
 
-# Прод образ на основе Nginx
-FROM nginx:alpine
+# Production stage
+FROM nginx:alpine AS production
 
-# Копирование собранных файлов
+# Remove default nginx static assets and create necessary directories
+RUN rm -rf /usr/share/nginx/html/* && \
+    mkdir -p /usr/share/nginx/html/images
+
+# Copy built files and nginx configuration
 COPY --from=build /app/dist /usr/share/nginx/html
-COPY --from=build /app/public /usr/share/nginx/html/public
-
-# Копирование конфигурации Nginx
+COPY --from=build /app/public /usr/share/nginx/html
 COPY docker/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Открываем порт
+# Expose port
 EXPOSE 80
 
-# Запускаем Nginx
+# Start nginx
 CMD ["nginx", "-g", "daemon off;"] 

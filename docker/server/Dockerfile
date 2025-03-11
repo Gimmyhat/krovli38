@@ -1,48 +1,35 @@
-# Базовый образ с Node.js
-FROM node:18-alpine AS build
+FROM node:20-alpine
 
-# Рабочая директория
 WORKDIR /app
 
-# Установка необходимых пакетов
-RUN apk add --no-cache python3 make g++ git
+# Install dependencies
+COPY server/package*.json ./
 
-# Глобальная установка TypeScript
-RUN npm install -g typescript
+# Install ALL dependencies including devDependencies
+ENV NODE_ENV=development
+RUN npm install
 
-# Копирование и установка зависимостей
-COPY server/package.json server/package-lock.json ./
-RUN npm ci --quiet
-
-# Копирование файлов проекта
-COPY server/ ./
-
-# Явное указание режима production
-ENV NODE_ENV=production 
-
-# Настройка максимального размера памяти для Node.js
-ENV NODE_OPTIONS="--max-old-space-size=4096"
-
-# Сборка с использованием TypeScript
-RUN npx tsc
-
-# Прод образ
-FROM node:18-alpine
-
-# Рабочая директория
-WORKDIR /app
-
-# Копирование только необходимых файлов для production
-COPY --from=build /app/package*.json ./
-COPY --from=build /app/dist ./dist
+# Copy source code and startup script
+COPY server/ .
 COPY docker/server/startup.sh ./startup.sh
 
-# Установка только production зависимостей
-RUN npm ci --quiet --only=production && \
+# Create logs directory and set permissions
+RUN mkdir -p logs && \
+    chown -R node:node . && \
     chmod +x ./startup.sh
 
-# Открываем порт
+# Build TypeScript code (включая все скрипты)
+RUN npm run build
+
+# Switch to production environment
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Switch to non-root user
+USER node
+
+# Expose port
 EXPOSE 3000
 
-# Запускаем сервер
+# Start the server with startup script
 CMD ["./startup.sh"] 

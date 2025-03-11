@@ -2,54 +2,11 @@ import { Request, Response } from 'express';
 import SiteSettings from '../models/SiteSettings';
 // Импортируем из директории utils через индексный файл
 import { getDefaultSettings } from '../utils';
-import { logger } from '../utils/logger';
 
 // Временная реализация для отладки
 // const getDefaultSettings = () => {
 //   return [];
 // };
-
-/**
- * Инициализация настроек из значений по умолчанию
- */
-const initializeDefaultSettings = async () => {
-  try {
-    const defaultSettings = getDefaultSettings();
-    logger.info('Loading default settings, count:', defaultSettings.length);
-    
-    if (!defaultSettings || !Array.isArray(defaultSettings) || defaultSettings.length === 0) {
-      throw new Error('Default settings are empty or not an array');
-    }
-    
-    // Проверяем структуру каждого объекта настроек перед вставкой
-    const validSettings = defaultSettings.filter(setting => 
-      setting && 
-      typeof setting === 'object' && 
-      'key' in setting && 
-      'type' in setting && 
-      'group' in setting && 
-      'value' in setting
-    );
-    
-    if (validSettings.length === 0) {
-      throw new Error('No valid settings found in default settings');
-    }
-    
-    logger.info('Valid settings to insert:', validSettings.length);
-    
-    // Удаляем все существующие настройки
-    await SiteSettings.deleteMany({});
-    
-    // Вставляем новые настройки
-    const insertedSettings = await SiteSettings.insertMany(validSettings);
-    logger.info('Settings initialized successfully:', insertedSettings.length);
-    
-    return insertedSettings;
-  } catch (error) {
-    logger.error('Error initializing default settings:', error);
-    throw error;
-  }
-};
 
 /**
  * Получить все настройки сайта
@@ -69,24 +26,42 @@ export const getAllSettings = async (req: Request, res: Response) => {
     // Если настроек нет, инициализируем их значениями по умолчанию
     if (settings.length === 0) {
       try {
-        const initializedSettings = await initializeDefaultSettings();
-        return res.status(200).json(initializedSettings);
+        const defaultSettings = getDefaultSettings();
+        console.log('Default settings loaded, count:', defaultSettings.length);
+        
+        if (defaultSettings && Array.isArray(defaultSettings) && defaultSettings.length > 0) {
+          // Проверяем структуру каждого объекта настроек перед вставкой
+          const validSettings = defaultSettings.filter(setting => 
+            setting && 
+            typeof setting === 'object' && 
+            'key' in setting && 
+            'type' in setting && 
+            'group' in setting && 
+            'value' in setting
+          );
+          
+          if (validSettings.length > 0) {
+            console.log('Valid settings to insert:', validSettings.length);
+            await SiteSettings.insertMany(validSettings);
+            return res.status(200).json(validSettings);
+          } else {
+            console.error('No valid settings found in default settings');
+            return res.status(200).json([]);
+          }
+        } else {
+          console.error('Default settings are empty or not an array');
+          return res.status(200).json([]);
+        }
       } catch (initError) {
-        logger.error('Error initializing settings:', initError);
-        return res.status(500).json({ 
-          message: 'Ошибка при инициализации настроек', 
-          error: initError instanceof Error ? initError.message : 'Unknown error' 
-        });
+        console.error('Error initializing default settings:', initError);
+        return res.status(200).json([]);
       }
     }
     
     return res.status(200).json(settings);
   } catch (error: any) {
-    logger.error('Error fetching settings:', error);
-    return res.status(500).json({ 
-      message: 'Ошибка при получении настроек', 
-      error: error.message 
-    });
+    console.error('Error fetching settings:', error);
+    return res.status(500).json({ message: 'Ошибка при получении настроек', error: error.message });
   }
 };
 
@@ -214,25 +189,5 @@ export const clearSettingsCache = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error clearing settings cache:', error);
     return res.status(500).json({ message: 'Ошибка при очистке кэша настроек' });
-  }
-};
-
-/**
- * Полный сброс и реинициализация настроек
- */
-export const reinitializeSettings = async (req: Request, res: Response) => {
-  try {
-    const initializedSettings = await initializeDefaultSettings();
-    
-    return res.status(200).json({ 
-      message: 'Настройки успешно реинициализированы',
-      settings: initializedSettings
-    });
-  } catch (error) {
-    logger.error('Error reinitializing settings:', error);
-    return res.status(500).json({ 
-      message: 'Ошибка при реинициализации настроек',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
   }
 }; 
