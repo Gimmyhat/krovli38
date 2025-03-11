@@ -1,35 +1,39 @@
-# Base stage
-FROM node:20-alpine AS base
+# Базовый образ с Node.js
+FROM node:18-alpine AS build
 
-# Установка зависимостей для сборки
+# Рабочая директория
+WORKDIR /app
+
+# Установка необходимых пакетов
 RUN apk add --no-cache python3 make g++ git
 
-WORKDIR /app
+# Копирование и установка зависимостей
+COPY admin-panel/package.json admin-panel/package-lock.json ./
+RUN npm ci --quiet
 
-# Development stage
-FROM base AS development
-ENV NODE_ENV=development
-WORKDIR /app
-COPY admin-panel/package*.json ./
-RUN npm install
-COPY admin-panel/ .
-EXPOSE 80
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "80"]
+# Копирование файлов проекта
+COPY admin-panel/ ./
 
-# Build stage
-FROM base AS builder
-ENV NODE_ENV=production
-WORKDIR /app
-COPY admin-panel/package*.json ./
-RUN npm ci
-COPY admin-panel/ .
+# Явное указание режима production
+ENV NODE_ENV=production 
+
+# Настройка максимального размера памяти для Node.js
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
+# Предельно простая сборка
 RUN npm run build
 
-# Production stage
-FROM nginx:alpine AS production
-RUN rm -rf /usr/share/nginx/html/* && \
-    mkdir -p /usr/share/nginx/html/admin
-COPY --from=builder /app/dist /usr/share/nginx/html/admin
+# Прод образ на основе Nginx
+FROM nginx:alpine
+
+# Копирование собранных файлов
+COPY --from=build /app/dist /usr/share/nginx/html/admin
+
+# Копирование конфигурации Nginx
 COPY docker/admin/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Открываем порт
 EXPOSE 80
+
+# Запускаем Nginx
 CMD ["nginx", "-g", "daemon off;"] 

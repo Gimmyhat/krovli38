@@ -1,58 +1,40 @@
-# Build stage
-FROM node:20-alpine AS base
+# Базовый образ с Node.js
+FROM node:18-alpine AS build
 
-# Установка зависимостей для сборки
-RUN apk add --no-cache python3 make g++ git
-
+# Рабочая директория
 WORKDIR /app
 
-# Development stage
-FROM base AS development
-ENV NODE_ENV=development
-COPY package*.json ./
-RUN npm install
+# Установка необходимых пакетов
+RUN apk add --no-cache python3 make g++ git
+
+# Копирование и установка зависимостей
+COPY package.json package-lock.json ./
+RUN npm ci --quiet
+
+# Копирование файлов проекта
 COPY . .
-EXPOSE 80
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "80"]
 
-# Build stage
-FROM base AS builder
-ENV NODE_ENV=production
+# Явное указание режима production
+ENV NODE_ENV=production 
 
-# Копируем только необходимые файлы для сборки
-COPY package*.json ./
-COPY vite.config.ts ./
-COPY tsconfig*.json ./
-COPY postcss.config.js ./
-COPY tailwind.config.js ./
-COPY index.html ./
+# Настройка максимального размера памяти для Node.js
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# Устанавливаем зависимости
-RUN npm ci
+# Предельно простая сборка
+RUN npm run build
 
-# Копируем исходники
-COPY public/ ./public/
-COPY src/ ./src/
+# Прод образ на основе Nginx
+FROM nginx:alpine
 
-# Отладка: проверяем содержимое директории
-RUN ls -la
+# Копирование собранных файлов
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build /app/public /usr/share/nginx/html/public
 
-# Отладка: выводим содержимое package.json
-RUN cat package.json
-
-# Сборка с подробным выводом
-RUN set -x && \
-    export NODE_OPTIONS="--max-old-space-size=4096" && \
-    npm install -g vite && \
-    npx vite --version && \
-    NODE_ENV=production npx vite build --mode production
-
-# Production stage
-FROM nginx:alpine AS production
-RUN rm -rf /usr/share/nginx/html/* && \
-    mkdir -p /usr/share/nginx/html/images
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY --from=builder /app/public /usr/share/nginx/html
+# Копирование конфигурации Nginx
 COPY docker/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Открываем порт
 EXPOSE 80
+
+# Запускаем Nginx
 CMD ["nginx", "-g", "daemon off;"] 
