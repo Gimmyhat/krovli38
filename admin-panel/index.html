@@ -2,139 +2,115 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
+    <!-- Исправляем пути к фавиконкам -->
+    <link rel="icon" type="image/svg+xml" href="/admin/favicon.svg" />
+    <link rel="icon" type="image/png" href="/admin/favicon.png" />
+    <!-- Дублируем для обратной совместимости -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.cloudinary.com; frame-src 'self' *.cloudinary.com data: blob:; img-src 'self' data: blob: *.cloudinary.com res.cloudinary.com; connect-src 'self' *.cloudinary.com api.cloudinary.com; style-src 'self' 'unsafe-inline';">
     <title>Админ-панель | Кровли38</title>
     
-    <!-- ВАЖНО: Полифилл для crypto и randomUUID, загружается перед всеми скриптами -->
+    <!-- ВАЖНО: Внешний полифилл загружается перед всем -->
+    <script src="/admin/crypto-polyfill.js"></script>
+    
+    <!-- ВАЖНО: Встроенный полифилл как запасной вариант -->
     <script>
-      // Немедленно выполняем полифилл для crypto
-      (function() {
-        // Создаем объект, если он не существует
-        if (typeof window.crypto === 'undefined') {
-          // Используем Object.defineProperty чтобы полифилл сработал на всех браузерах
-          Object.defineProperty(window, 'crypto', {
-            value: {},
-            writable: true,
-            configurable: true
-          });
-          console.log('Создан полифилл для window.crypto (основной)');
-        }
+      // Проверяем, был ли уже установлен полифилл
+      if (!window._cryptoPolyfilled) {
+        console.warn('Внешний полифилл не загрузился, применяем встроенный...');
         
-        // Полифилл для getRandomValues
-        if (typeof window.crypto.getRandomValues !== 'function') {
-          // Используем Object.defineProperty чтобы переопределить свойство
-          Object.defineProperty(window.crypto, 'getRandomValues', {
-            value: function(array) {
-              // Проверка на null и undefined
-              if (!array) return array;
-              
-              try {
-                let length = 0;
+        // Немедленно выполняем полифилл для crypto
+        (function() {
+          // Создаем объект, если он не существует
+          if (typeof window.crypto === 'undefined') {
+            // Используем Object.defineProperty чтобы полифилл сработал на всех браузерах
+            Object.defineProperty(window, 'crypto', {
+              value: {},
+              writable: true,
+              configurable: true
+            });
+            console.log('Создан полифилл для window.crypto (встроенный)');
+          }
+          
+          // Полифилл для getRandomValues
+          if (typeof window.crypto.getRandomValues !== 'function') {
+            // Используем Object.defineProperty чтобы переопределить свойство
+            Object.defineProperty(window.crypto, 'getRandomValues', {
+              value: function(array) {
+                // Проверка на null и undefined
+                if (!array) return array;
                 
-                // Определяем, как получить длину массива
-                if (array.byteLength !== undefined) {
-                  // ArrayBuffer или TypedArray
-                  length = array.byteLength;
-                  // Обрабатываем как Uint8Array для совместимости
-                  var uint8View = new Uint8Array(array.buffer || array, 
-                                               array.byteOffset || 0, 
-                                               length);
+                try {
+                  let length = 0;
                   
-                  for (var i = 0; i < length; i++) {
-                    uint8View[i] = Math.floor(Math.random() * 256);
+                  // Определяем, как получить длину массива
+                  if (array.byteLength !== undefined) {
+                    // ArrayBuffer или TypedArray
+                    length = array.byteLength;
+                    // Обрабатываем как Uint8Array для совместимости
+                    var uint8View = new Uint8Array(array.buffer || array, 
+                                                array.byteOffset || 0, 
+                                                length);
+                    
+                    for (var i = 0; i < length; i++) {
+                      uint8View[i] = Math.floor(Math.random() * 256);
+                    }
+                  } else if (Array.isArray(array)) {
+                    // Обычный JavaScript массив
+                    length = array.length;
+                    for (var i = 0; i < length; i++) {
+                      array[i] = Math.floor(Math.random() * 256);
+                    }
                   }
-                } else if (Array.isArray(array)) {
-                  // Обычный JavaScript массив
-                  length = array.length;
-                  for (var i = 0; i < length; i++) {
-                    array[i] = Math.floor(Math.random() * 256);
-                  }
+                  
+                  console.log('Использован полифилл для getRandomValues (встроенный)');
+                  return array;
+                } catch (e) {
+                  console.error('Ошибка в полифилле getRandomValues:', e);
+                  return array;
                 }
-                
-                console.log('Использован полифилл для getRandomValues (основной)');
-                return array;
-              } catch (e) {
-                console.error('Ошибка в полифилле getRandomValues:', e);
-                return array;
-              }
-            },
-            writable: true,
-            configurable: true
-          });
-          console.log('Добавлен полифилл для crypto.getRandomValues (основной)');
-        }
-        
-        // Полифилл для randomUUID
-        if (typeof window.crypto.randomUUID !== 'function') {
-          // Используем Object.defineProperty чтобы переопределить свойство
-          Object.defineProperty(window.crypto, 'randomUUID', {
-            value: function() {
-              try {
-                // Используем более надежную реализацию UUID v4
-                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                  var r = Math.random() * 16 | 0,
-                      v = c === 'x' ? r : (r & 0x3 | 0x8);
-                  return v.toString(16);
-                });
-              } catch (e) {
-                console.error('Ошибка в полифилле randomUUID:', e);
-                // Запасной вариант, если первый способ не сработал
-                var d = new Date().getTime();
-                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                  var r = (d + Math.random() * 16) % 16 | 0;
-                  d = Math.floor(d / 16);
-                  return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-                });
-              }
-            },
-            writable: true,
-            configurable: true
-          });
-          console.log('Добавлен полифилл для crypto.randomUUID (основной)');
-        }
-        
-        // Глобальная переменная для отслеживания
-        window._cryptoPolyfilled = true;
-        
-        // Переопределяем ошибки для отладки
-        var originalConsoleError = console.error;
-        console.error = function() {
-          // Проверяем наличие ошибки crypto.randomUUID
-          if (arguments[0] && typeof arguments[0] === 'string' && 
-              arguments[0].indexOf('crypto.randomUUID') !== -1) {
-            console.log('Перехвачена ошибка crypto.randomUUID, повторное применение полифилла');
-            
-            // Повторно применяем полифилл
-            if (typeof window.crypto === 'undefined') {
-              Object.defineProperty(window, 'crypto', {
-                value: {},
-                writable: true,
-                configurable: true
-              });
-            }
-            
-            Object.defineProperty(window.crypto, 'randomUUID', {
-              value: function() {
-                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                  var r = Math.random() * 16 | 0, 
-                      v = c === 'x' ? r : (r & 0x3 | 0x8);
-                  return v.toString(16);
-                });
               },
               writable: true,
               configurable: true
             });
-            
-            console.log('Полифилл для crypto.randomUUID принудительно переустановлен');
+            console.log('Добавлен полифилл для crypto.getRandomValues (встроенный)');
           }
           
-          // Вызываем оригинальную функцию
-          originalConsoleError.apply(console, arguments);
-        };
-      })();
+          // Полифилл для randomUUID
+          if (typeof window.crypto.randomUUID !== 'function') {
+            // Используем Object.defineProperty чтобы переопределить свойство
+            Object.defineProperty(window.crypto, 'randomUUID', {
+              value: function() {
+                try {
+                  // Используем более надежную реализацию UUID v4
+                  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    var r = Math.random() * 16 | 0,
+                        v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                  });
+                } catch (e) {
+                  console.error('Ошибка в полифилле randomUUID:', e);
+                  // Запасной вариант, если первый способ не сработал
+                  var d = new Date().getTime();
+                  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    var r = (d + Math.random() * 16) % 16 | 0;
+                    d = Math.floor(d / 16);
+                    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                  });
+                }
+              },
+              writable: true,
+              configurable: true
+            });
+            console.log('Добавлен полифилл для crypto.randomUUID (встроенный)');
+          }
+          
+          // Глобальная переменная для отслеживания
+          window._cryptoPolyfilled = true;
+        })();
+      }
     </script>
     
     <!-- Скрипты Cloudinary -->
