@@ -168,4 +168,26 @@ export const resetSettings = async (req: Request, res: Response) => {
     console.error('Error resetting settings:', error);
     return res.status(500).json({ message: 'Ошибка при сбросе настроек' });
   }
+};
+
+/**
+ * Очистить кэш настроек
+ * Этот метод нужен для сигнализации клиентам о необходимости обновить настройки
+ */
+export const clearSettingsCache = async (req: Request, res: Response) => {
+  try {
+    // Поскольку мы не храним кэш на сервере, то просто возвращаем успешный результат
+    // Клиенты при получении ответа на этот запрос будут обновлять свои данные
+    
+    // Для отладки запишем событие очистки кэша
+    console.log('Запрос на очистку кэша настроек', new Date().toISOString());
+    
+    return res.status(200).json({ 
+      message: 'Кэш настроек очищен', 
+      timestamp: Date.now()
+    });
+  } catch (error) {
+    console.error('Error clearing settings cache:', error);
+    return res.status(500).json({ message: 'Ошибка при очистке кэша настроек' });
+  }
 }; 

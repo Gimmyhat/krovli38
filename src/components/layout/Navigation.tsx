@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Phone } from 'lucide-react';
 import { NAV_ITEMS, CONTACT_INFO } from '../../constants/navigation';
 import { IMAGE_PATHS } from '../../constants';
@@ -6,8 +6,19 @@ import { useSettings } from '../../context/SettingsContext';
 
 const Navigation: React.FC = () => {
   const { settings } = useSettings();
+  const [logoVersion, setLogoVersion] = useState<number>(Date.now());
   const logoSize = settings.logo_size || 96; // Используем значение из настроек или 96px по умолчанию
   const logoPath = settings.logo_path || IMAGE_PATHS.LOGO; // Используем путь из настроек или из констант
+
+  // Обновляем версию логотипа при изменении пути
+  useEffect(() => {
+    if (logoPath) {
+      setLogoVersion(Date.now());
+    }
+  }, [logoPath]);
+
+  // Формируем URL логотипа с параметром версии для предотвращения кэширования
+  const logoUrl = logoPath ? `${logoPath}?v=${logoVersion}` : '';
 
   return (
     <nav className="bg-black/80 backdrop-blur-md">
@@ -15,7 +26,7 @@ const Navigation: React.FC = () => {
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-3 text-white">
             <img 
-              src={logoPath} 
+              src={logoUrl} 
               alt="Кровли38" 
               className="w-auto mix-blend-screen"
               style={{ 

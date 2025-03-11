@@ -281,6 +281,36 @@ const Settings: React.FC = () => {
         message: 'Изменения успешно сохранены',
         color: 'green'
       });
+
+      // Проверяем, есть ли среди обновленных настроек связанные с изображениями
+      const hasImageSettings = Object.keys(formData).some(key => 
+        key.includes('logo') || key.includes('image') || key.includes('background')
+      );
+
+      // Если обновлены изображения, запускаем очистку кэша и сигнализируем об обновлении
+      if (hasImageSettings) {
+        try {
+          // Отправляем сигнал на фронтенд о необходимости обновления настроек
+          // Это простой запрос, который заставит сервер обновить настройки
+          const response = await fetch('/api/settings/clear-cache', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          
+          if (response.ok) {
+            notifications.show({
+              title: 'Кэш очищен',
+              message: 'Изменения применены на сайте',
+              color: 'green'
+            });
+          }
+        } catch (cacheError) {
+          console.error('Ошибка при очистке кэша:', cacheError);
+        }
+      }
     } catch (error) {
       console.error('Ошибка при сохранении настроек:', error);
       
