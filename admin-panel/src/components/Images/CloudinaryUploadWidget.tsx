@@ -98,7 +98,11 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
         try {
           setLoading(true);
           
-          // Создаем изображения через API с задержкой между запросами
+          // Массив для отслеживания ошибок
+          const errors: string[] = [];
+          let successCount = 0;
+          
+          // Создаем изображения через API с увеличенной задержкой между запросами
           for (let i = 0; i < uploadedFiles.current.length; i++) {
             const file = uploadedFiles.current[i];
             if (file.info && file.info.public_id) {
@@ -112,16 +116,28 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
                   tags: tags
                 };
                 
-                // Вызываем API для сохранения метаданных
-                await createImageFromCloudinary(imageData);
+                // Вызываем API для сохранения метаданных с обработкой ошибок
+                try {
+                  await createImageFromCloudinary(imageData);
+                  successCount++;
+                } catch (apiError) {
+                  console.error(`Ошибка при создании изображения из Cloudinary (${i+1}/${uploadedFiles.current.length}):`, apiError);
+                  
+                  // Если сервер вернул HTTP ошибку
+                  if (apiError instanceof Error) {
+                    errors.push(`Файл #${i+1}: ${apiError.message}`);
+                  } else {
+                    errors.push(`Файл #${i+1}: неизвестная ошибка`);
+                  }
+                }
                 
-                // Добавляем задержку между запросами, чтобы избежать 429 ошибки
+                // Увеличиваем задержку между запросами до 5 секунд
                 if (i < uploadedFiles.current.length - 1) {
-                  await new Promise(resolve => setTimeout(resolve, 1000));
+                  await new Promise(resolve => setTimeout(resolve, 5000));
                 }
               } catch (err) {
-                console.error(`Ошибка при создании изображения из Cloudinary (${i+1}/${uploadedFiles.current.length}):`, err);
-                // Продолжаем выполнение с другими изображениями, не прерываем цикл
+                console.error(`Ошибка при подготовке данных для изображения (${i+1}/${uploadedFiles.current.length}):`, err);
+                errors.push(`Файл #${i+1}: ошибка при подготовке данных`);
               }
             }
           }
@@ -129,17 +145,28 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
           // Очищаем временные данные
           uploadedFiles.current = [];
           
-          // Уведомляем и закрываем модальное окно
-          notifications.show({
-            title: 'Успешно',
-            message: 'Все изображения успешно загружены',
-            color: 'green',
-            icon: <IconCheck size={16} />
-          });
-          
-          // Вызываем функцию обратного вызова для обновления списка изображений
-          onUploadSuccess();
-          onClose();
+          // Показываем уведомление в зависимости от результатов
+          if (errors.length === 0) {
+            notifications.show({
+              title: 'Успешно',
+              message: 'Все изображения успешно загружены',
+              color: 'green',
+              icon: <IconCheck size={16} />
+            });
+            
+            // Вызываем функцию обратного вызова для обновления списка изображений
+            onUploadSuccess();
+            onClose();
+          } else if (successCount > 0) {
+            // Если есть и успехи, и ошибки
+            setError(`Не все изображения были сохранены. ${successCount} успешно, ${errors.length} с ошибками: ${errors.join('; ')}`);
+            
+            // Вызываем функцию обратного вызова для обновления списка изображений
+            onUploadSuccess();
+          } else {
+            // Если только ошибки
+            setError(`Не удалось сохранить метаданные изображений: ${errors.join('; ')}`);
+          }
         } catch (error) {
           console.error('Ошибка при сохранении изображений:', error);
           setError('Не удалось сохранить метаданные изображений в БД');
@@ -204,7 +231,7 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
             // Если теги указаны, добавляем их
             tags: tags.length > 0 ? tags : undefined,
             // Увеличиваем задержку между запросами
-            queueDuration: 3500 // 3.5 секунды между загрузками
+            queueDuration: 5000 // 5 секунд между загрузками
           });
           
           // Добавляем дополнительное свойство для блокировки трекинга ошибок DeepL
