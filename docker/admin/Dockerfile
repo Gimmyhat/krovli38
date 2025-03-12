@@ -44,8 +44,11 @@ RUN rm -rf /usr/share/nginx/html/*
 COPY --from=build /app/dist /usr/share/nginx/html/admin
 COPY --from=build /app/public/admin /usr/share/nginx/html/admin/
 
-# Modify index.html to include polyfills with минимальной задержкой
-RUN sed -i 's/<head>/<head>\n  <script>\n    \/\/ Немедленно определяем crypto.randomUUID\n    if (typeof window.crypto === "undefined") window.crypto = {};\n    if (typeof window.crypto.randomUUID !== "function") {\n      window.crypto.randomUUID = function() {\n        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(\/[xy]\/g, function(c) {\n          var r = Math.random() * 16 | 0, v = c === "x" ? r : (r & 0x3 | 0x8);\n          return v.toString(16);\n        });\n      };\n      console.log("Inline polyfill активирован");\n    }\n  <\/script>\n  <script src="\/admin\/crypto-polyfill.js"><\/script>\n  <script src="\/admin\/cloudinary-helper.js"><\/script>/' /usr/share/nginx/html/admin/index.html
+# Modify index.html для безопасного подключения полифиллов
+RUN sed -i 's/<head>/<head>\n  <script>\n    \/\/ Базовый полифилл для crypto.randomUUID, внедренный напрямую\n    try {\n      if (typeof window.crypto === "undefined") window.crypto = {};\n      if (typeof window.crypto.randomUUID !== "function") {\n        window.crypto.randomUUID = function() {\n          return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(\/[xy]\/g, function(c) {\n            var r = Math.random() * 16 | 0, v = c === "x" ? r : (r & 0x3 | 0x8);\n            return v.toString(16);\n          });\n        };\n        console.log("Inline polyfill активирован");\n      }\n    } catch (e) {\n      console.error("Ошибка в inline polyfill:", e);\n    }\n  <\/script>/' /usr/share/nginx/html/admin/index.html
+
+# Добавляем скрипты после базового полифилла
+RUN sed -i '/<\/head>/ i \  <script src="\/admin\/meta-polyfill.js"><\/script>\n  <script src="\/admin\/crypto-polyfill.js"><\/script>\n  <script src="\/admin\/cloudinary-helper.js"><\/script>' /usr/share/nginx/html/admin/index.html
 
 # Copy nginx configuration
 COPY docker/admin/nginx.conf /etc/nginx/conf.d/default.conf

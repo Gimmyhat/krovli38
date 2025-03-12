@@ -3,121 +3,148 @@
  * Этот файл будет загружен до всех остальных скриптов
  */
 (function() {
-  // Перехватываем ошибки и логируем их
-  var originalConsoleError = console.error;
-  console.error = function() {
-    var args = Array.from(arguments);
-    var errorStr = args.join(' ');
-    
-    // Перехватываем ошибки, связанные с crypto
-    if (typeof errorStr === 'string' && errorStr.includes('crypto') && errorStr.includes('randomUUID')) {
-      console.warn('Перехвачена ошибка, связанная с crypto.randomUUID:', errorStr);
-      ensureCryptoSupport();
-    }
-    
-    // Вызываем оригинальный метод
-    return originalConsoleError.apply(console, args);
-  };
+  console.log('Инициализация crypto-polyfill.js');
   
-  // Функция для гарантированного создания UUID
+  // Безопасная функция создания UUID (без внешних зависимостей)
   function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      var r = Math.random() * 16 | 0,
-          v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
+    try {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0;
+        var v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    } catch (err) {
+      console.error('Ошибка при генерации UUID:', err);
+      // Запасной вариант, если что-то пошло не так
+      return Math.random().toString(36).substring(2, 15) + 
+             Math.random().toString(36).substring(2, 15);
+    }
   }
   
-  // Функция убеждается, что crypto и randomUUID доступны
-  function ensureCryptoSupport() {
+  // Функция для тестирования полифилла
+  function testRandomUUID() {
     try {
-      // Если window.crypto не существует, создаем его
+      if (typeof window.crypto !== 'undefined' && 
+          typeof window.crypto.randomUUID === 'function') {
+        var uuid = window.crypto.randomUUID();
+        console.log('Тест crypto.randomUUID успешен:', uuid);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Ошибка при тестировании crypto.randomUUID:', err);
+      return false;
+    }
+  }
+  
+  // Основная функция для установки полифилла
+  function setupPolyfill() {
+    try {
+      // Гарантируем существование объекта crypto
       if (typeof window.crypto === 'undefined') {
         window.crypto = {};
         console.log('Создан объект crypto');
       }
       
-      // Если crypto.getRandomValues не существует, создаем его
+      // Реализуем getRandomValues, если его нет
       if (typeof window.crypto.getRandomValues !== 'function') {
         window.crypto.getRandomValues = function(array) {
           if (!array) return array;
           
-          var length = array.length;
-          for (var i = 0; i < length; i++) {
-            // Для любого типизированного массива
-            if (array.BYTES_PER_ELEMENT) {
-              array[i] = Math.floor(Math.random() * 256) % Math.pow(2, 8 * array.BYTES_PER_ELEMENT);
-            } else {
-              array[i] = Math.floor(Math.random() * 256);
+          try {
+            for (var i = 0; i < array.length; i++) {
+              if (array.BYTES_PER_ELEMENT) {
+                array[i] = Math.floor(Math.random() * 256) % 
+                           Math.pow(2, 8 * array.BYTES_PER_ELEMENT);
+              } else {
+                array[i] = Math.floor(Math.random() * 256);
+              }
             }
+          } catch (err) {
+            console.error('Ошибка при заполнении массива случайными значениями:', err);
           }
+          
           return array;
         };
-        console.log('Создан метод crypto.getRandomValues');
+        console.log('Добавлен полифилл для crypto.getRandomValues');
       }
       
-      // Если crypto.randomUUID не существует, создаем его
+      // Реализуем randomUUID, если его нет
       if (typeof window.crypto.randomUUID !== 'function') {
-        Object.defineProperty(window.crypto, 'randomUUID', {
-          enumerable: true,
-          configurable: true,
-          writable: true,
-          value: generateUUID
-        });
-        console.log('Создан метод crypto.randomUUID');
+        // Использаем прямое присваивание вместо Object.defineProperty
+        window.crypto.randomUUID = generateUUID;
+        console.log('Добавлен полифилл для crypto.randomUUID');
       }
       
-      // Проверяем, что все работает
-      var testValue = new Uint8Array(10);
-      window.crypto.getRandomValues(testValue);
-      var testUUID = window.crypto.randomUUID();
-      
-      console.log('Полифилл успешно применен:');
-      console.log('- getRandomValues тест:', Array.from(testValue));
-      console.log('- randomUUID тест:', testUUID);
-      
-      return true;
+      // Тестируем функциональность
+      if (testRandomUUID()) {
+        console.log('Полифилл успешно установлен и протестирован');
+        return true;
+      } else {
+        // Еще одна попытка с прямым присваиванием
+        window.crypto.randomUUID = generateUUID;
+        
+        if (testRandomUUID()) {
+          console.log('Полифилл успешно установлен со второй попытки');
+          return true;
+        } else {
+          console.error('КРИТИЧЕСКАЯ ОШИБКА: Не удалось применить полифилл для crypto.randomUUID!');
+          return false;
+        }
+      }
     } catch (err) {
-      console.error('Ошибка при настройке crypto полифилла:', err);
-      return false;
+      console.error('Критическая ошибка при установке полифилла:', err);
+      
+      // Последняя попытка - глобальный аварийный режим
+      try {
+        window.crypto = {
+          getRandomValues: function(array) {
+            for (var i = 0; i < array.length; i++) {
+              array[i] = Math.floor(Math.random() * 256);
+            }
+            return array;
+          },
+          randomUUID: generateUUID
+        };
+        console.log('Установлен аварийный полифилл');
+        return testRandomUUID();
+      } catch (finalErr) {
+        console.error('Все попытки установить полифилл провалились:', finalErr);
+        return false;
+      }
     }
   }
   
-  // Сразу применяем полифилл при загрузке скрипта
-  ensureCryptoSupport();
+  // Установка полифилла при загрузке скрипта
+  var success = setupPolyfill();
   
-  // Устанавливаем интервал для периодической проверки
-  var interval = setInterval(function() {
-    ensureCryptoSupport();
-  }, 1000);
+  // Устанавливаем обработчик для проверки и повторной установки, если нужно
+  window.addEventListener('load', function() {
+    if (!testRandomUUID()) {
+      console.warn('На момент загрузки страницы crypto.randomUUID недоступен, пытаемся переустановить');
+      setupPolyfill();
+    }
+  });
   
-  // Останавливаем интервал через 30 секунд
-  setTimeout(function() {
-    clearInterval(interval);
-  }, 30000);
-  
-  // Добавляем обработчик ошибок
+  // Обработчик ошибок, связанных с crypto
   window.addEventListener('error', function(event) {
     if (event && event.error && event.error.message && 
-        event.error.message.includes('crypto.randomUUID')) {
-      console.warn('Перехвачена ошибка window.error:', event.error.message);
-      ensureCryptoSupport();
+        typeof event.error.message === 'string' && 
+        event.error.message.includes('crypto') && 
+        event.error.message.includes('randomUUID')) {
+      console.warn('Перехвачена ошибка crypto:', event.error.message);
+      setupPolyfill();
+      
+      // Предотвращаем дальнейшую обработку ошибки
       event.preventDefault();
     }
   }, true);
   
-  // Добавляем обработчик для состояния готовности документа
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ensureCryptoSupport);
-  } else {
-    ensureCryptoSupport();
-  }
+  // Экспорт статуса для отладки
+  window._cryptoPolyfillStatus = {
+    installed: success,
+    timestamp: new Date().toISOString()
+  };
   
-  // Добавляем обработчик для полной загрузки страницы
-  window.addEventListener('load', ensureCryptoSupport);
-  
-  // Устанавливаем глобальный флаг
-  window._cryptoPolyfilled = true;
-  
-  console.log('Глобальный полифилл для crypto успешно инициализирован');
+  console.log('Инициализация crypto-polyfill.js завершена');
 })(); 
