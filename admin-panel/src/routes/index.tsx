@@ -1,39 +1,40 @@
-import React from 'react';
-import { Route, Routes, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import Login from '../pages/Login';
 import Dashboard from '../pages/Dashboard';
+import Requests from '../pages/Requests';
+import Logs from '../pages/Logs';
 import Images from '../pages/Images';
 import Gallery from '../pages/Gallery';
 import Settings from '../pages/Settings';
 import Layout from '../components/Layout';
-import MediaPage from '../pages/MediaPage';
-import TestSelectorPage from '../pages/TestSelectorPage';
-import Login from '../pages/Login';
-import Requests from '../pages/Requests';
-import Logs from '../pages/Logs';
 import { ReactNode } from 'react';
-import ContactsPage from '../pages/ContactsPage';
-import NotFoundPage from '../pages/NotFoundPage';
-import { TestSelectorPage as TestSelectorPageComponent } from '../pages/TestSelectorPage';
-import Users from '../pages/Users';
 
 // Компонент для защищенных маршрутов
 interface ProtectedRouteProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
-
+const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
+  const { isAuthenticated, loading } = useAuth();
+  
+  if (loading) {
+    return <div>Загрузка...</div>;
+  }
+  
   if (!isAuthenticated) {
     return <Navigate to="/admin/login" replace />;
   }
-
+  
   return <>{children}</>;
 };
 
 const AppRoutes = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return <div>Загрузка...</div>;
+  }
 
   return (
     <Routes>
@@ -48,10 +49,10 @@ const AppRoutes = () => {
       }>
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="requests" element={<Requests />} />
+        <Route path="logs" element={<Logs />} />
         <Route path="images" element={<Images />} />
         <Route path="gallery" element={<Gallery />} />
-        <Route path="media" element={<MediaPage />} />
-        <Route path="test-selector" element={<TestSelectorPage />} />
         <Route path="settings" element={<Settings />} />
       </Route>
 

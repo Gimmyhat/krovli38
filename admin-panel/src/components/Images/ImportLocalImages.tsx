@@ -29,7 +29,8 @@ import {
 import { importLocalImages } from '../../api/imageApi';
 import { notifications } from '@mantine/notifications';
 import axios from 'axios';
-import { API_URL, LOCAL_IMAGE_DIRECTORIES } from '../../constants';
+import { API } from '../../constants';
+import { LOCAL_IMAGE_DIRECTORIES } from '../../constants';
 
 interface ImportLocalImagesProps {
   onCompleted?: () => void;
@@ -83,7 +84,7 @@ const ImportLocalImages: React.FC<ImportLocalImagesProps> = ({ onCompleted }) =>
       const token = localStorage.getItem('token');
       
       const { data } = await axios.post(
-        `${API_URL}/images/check-paths`, 
+        `${API.BASE_URL}/images/check-paths`, 
         { 
           directories,
           deep: deepScan

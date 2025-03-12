@@ -1,13 +1,6 @@
 #!/bin/sh
 set -e
 
-# Создаем директории для загрузки, если они не существуют
-echo "Checking upload directories..."
-mkdir -p public/uploads
-mkdir -p public/uploads/thumbnails
-chmod -R 755 public/uploads
-echo "Upload directories ready"
-
 # Проверяем наличие скомпилированных файлов
 if [ ! -f "dist/scripts/updateLogoPath.js" ]; then
     echo "Error: updateLogoPath.js not found!"

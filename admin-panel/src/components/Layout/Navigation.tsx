@@ -1,6 +1,6 @@
 import { UnstyledButton, Group, Text } from '@mantine/core';
 import { Link, useLocation } from 'react-router-dom';
-import { IconDashboard, IconUsers, IconLogout, IconList, IconPhoto, IconSettings, IconPhotoEdit, IconFiles } from '@tabler/icons-react';
+import { IconDashboard, IconUsers, IconLogout, IconList, IconPhoto, IconSettings, IconPhotoEdit } from '@tabler/icons-react';
 
 interface NavigationProps {
   onLogout: () => void;
@@ -15,8 +15,7 @@ const Navigation = ({ onLogout }: NavigationProps) => {
     { label: 'Логи', icon: IconList, path: '/admin/logs' },
     { label: 'Изображения', icon: IconPhoto, path: '/admin/images' },
     { label: 'Галерея', icon: IconPhotoEdit, path: '/admin/gallery' },
-    { label: 'Настройки сайта', icon: IconSettings, path: '/admin/settings' },
-    { label: 'Медиа-библиотека', icon: IconFiles, path: '/admin/media' }
+    { label: 'Настройки сайта', icon: IconSettings, path: '/admin/settings' }
   ];
 
   const NavButton = ({ label, icon: Icon, path, onClick }: { 
@@ -25,7 +24,7 @@ const Navigation = ({ onLogout }: NavigationProps) => {
     path?: string;
     onClick?: () => void;
   }) => {
-    const isActive = location.pathname === path;
+    const isActive = path ? location.pathname === path : false;
 
     if (!path) {
       return (

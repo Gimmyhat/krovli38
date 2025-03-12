@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { 
   Box, Button, Group, Text, Image,
-  SimpleGrid, Modal, Stack, TextInput, Select, MultiSelect,
-  LoadingOverlay,
+  Modal, Stack, TextInput, Select, MultiSelect,
   FileInput,
   Divider,
-  Textarea,
   Checkbox,
   Progress,
   Grid,
@@ -13,11 +11,28 @@ import {
   CloseButton
 } from '@mantine/core';
 import { useDropzone } from 'react-dropzone';
-import { IconUpload, IconPhoto, IconX, IconAlertCircle, IconCheck, IconFileUpload } from '@tabler/icons-react';
+import { IconUpload, IconX, IconCheck, IconFileUpload } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { mediaService, MediaMetadata } from '../../services/mediaService';
-import { IMAGE_TYPES, SECTIONS, AVAILABLE_TAGS } from '../../constants';
 import { uploadMultipleImages } from '../../api/imageApi';
+
+// Определяем константы локально вместо импорта
+const IMAGE_TYPES = [
+  { value: 'logo', label: 'Логотип' },
+  { value: 'hero', label: 'Баннер' },
+  { value: 'gallery', label: 'Галерея' },
+  { value: 'background', label: 'Фон' },
+  { value: 'icon', label: 'Иконка' }
+];
+
+const SECTIONS = [
+  { value: 'general', label: 'Общие' },
+  { value: 'hero', label: 'Главная секция' },
+  { value: 'gallery', label: 'Галерея' },
+  { value: 'services', label: 'Услуги' },
+  { value: 'footer', label: 'Подвал' }
+];
+
+const AVAILABLE_TAGS = ['featured', 'new', 'popular', 'background', 'icon'];
 
 export interface MediaUploaderProps {
   opened: boolean;
@@ -82,21 +97,11 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     onClose();
   };
   
-  const handleFileChange = (uploadedFiles: File[] | null) => {
+  const handleFileChange = (uploadedFiles: FileWithPreview[] | null) => {
     if (!uploadedFiles || uploadedFiles.length === 0) return;
     
-    const newFiles: FileWithPreview[] = Array.from(uploadedFiles).map(file => {
-      const fileWithPreview = {
-        ...file,
-        preview: URL.createObjectURL(file),
-        id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
-        originalType: file.type
-      } as FileWithPreview;
-      return fileWithPreview;
-    });
-    
     setFiles(prevFiles => {
-      const combined = [...prevFiles, ...newFiles];
+      const combined = [...prevFiles, ...uploadedFiles];
       // Ограничиваем количество файлов
       return combined.slice(0, maxFiles);
     });
@@ -139,7 +144,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     
     try {
       // Подготавливаем файлы и их метаданные
-      const filesToUpload = files.map(file => {
+      const filesToUpload = await Promise.all(files.map(async (file) => {
         const metadata = useSharedMetadata 
           ? { ...sharedMetadata } 
           : {
@@ -150,18 +155,16 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
               alt: file.alt || ''
             };
         
-        // Создаем реальный объект File с оригинальным типом
-        const fileObject = new File(
-          [file], 
-          file.name, 
-          { type: file.originalType }
-        );
+        // Создаем реальный объект File, используя содержимое как ArrayBuffer
+        // Этот подход решает проблему типизации
+        const buffer = await fetch(file.preview || '').then(r => r.arrayBuffer());
+        const fileObject = new File([buffer], file.name, { type: file.originalType });
         
         return {
           file: fileObject,
           metadata
         };
-      });
+      }));
       
       // Последовательная загрузка с обновлением прогресса
       const results = [];
@@ -209,12 +212,18 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
   // Инициализируем dropzone
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (acceptedFiles) => {
-      // Приводим File[] к FileWithPath[] и добавляем свойство path
-      const filesWithPath = acceptedFiles.map(file => 
-        Object.assign(file, { path: URL.createObjectURL(file) })
-      ) as FileWithPreview[];
+      // Правильно создаем объекты типа FileWithPreview
+      const filesWithPreview = acceptedFiles.map(file => {
+        const preview = URL.createObjectURL(file);
+        return {
+          ...file,
+          preview,
+          id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
+          originalType: file.type
+        } as FileWithPreview;
+      });
       
-      handleFileChange(filesWithPath);
+      handleFileChange(filesWithPreview);
     },
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
@@ -223,54 +232,12 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     multiple: maxFiles > 1
   });
 
+  // Объявляем функцию для создания новых тегов
+
+  // Предзагруженные опции для мультиселекта
+  const tagOptions = AVAILABLE_TAGS.map(tag => ({ value: tag, label: tag }));
+
   // Превью файлов
-  const previews = files.map((file) => {
-    const imageUrl = URL.createObjectURL(file);
-    
-    return (
-      <Box key={file.id} p="sm" style={{ border: '1px solid #eee', borderRadius: '4px' }}>
-        <Group justify="space-between" mb="xs">
-          <Text size="sm" fw={500} truncate style={{ maxWidth: '180px' }}>
-            {file.name}
-          </Text>
-          <Button 
-            variant="subtle" 
-            color="red" 
-            size="compact" 
-            p={0} 
-            onClick={() => removeFile(file.id)}
-          >
-            <IconX size={18} />
-          </Button>
-        </Group>
-        
-        <Image 
-          src={file.preview}
-          height={120}
-          fit="contain"
-          mb="xs"
-          style={{ borderRadius: '4px' }}
-        />
-        
-        <TextInput
-          label="Название"
-          placeholder="Введите название"
-          size="xs"
-          value={file.title || ''}
-          onChange={(e) => updateFileMetadata(file.id, 'title', e.currentTarget.value)}
-          mb="xs"
-        />
-        
-        <TextInput
-          label="Alt текст"
-          placeholder="Текст для SEO"
-          size="xs"
-          value={file.alt || ''}
-          onChange={(e) => updateFileMetadata(file.id, 'alt', e.currentTarget.value)}
-        />
-      </Box>
-    );
-  });
 
   return (
     <Modal
@@ -288,7 +255,23 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
             label="Изображения"
             accept="image/*"
             multiple={multiple}
-            onChange={handleFileChange}
+            onChange={(payload: File | File[] | null) => {
+              const files = payload ? (Array.isArray(payload) ? payload : [payload]) : null;
+              
+              if (files) {
+                const filesWithPreview = files.map(file => {
+                  const preview = URL.createObjectURL(file);
+                  return {
+                    ...file,
+                    preview,
+                    id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
+                    originalType: file.type
+                  } as FileWithPreview;
+                });
+                
+                handleFileChange(filesWithPreview);
+              }
+            }}
             leftSection={<IconFileUpload size={16} />}
             disabled={uploading || files.length >= maxFiles}
             value={null}
@@ -297,6 +280,22 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
             {files.length} из {maxFiles} изображений
           </Text>
         </Group>
+        
+        {/* Добавляем зону для перетаскивания файлов */}
+        <Box
+          {...getRootProps()}
+          style={{
+            border: isDragActive ? '2px dashed blue' : '2px dashed #eee',
+            borderRadius: '4px',
+            padding: '20px',
+            textAlign: 'center',
+            cursor: 'pointer',
+            marginBottom: '20px'
+          }}
+        >
+          <input {...getInputProps()} />
+          <Text>Перетащите файлы сюда или кликните для выбора</Text>
+        </Box>
         
         {files.length > 0 && (
           <>
@@ -335,11 +334,9 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
                   <MultiSelect
                     label="Теги"
                     placeholder="Добавьте теги"
-                    data={[]}
+                    data={tagOptions}
                     value={sharedMetadata.tags}
                     onChange={(value) => setSharedMetadata({...sharedMetadata, tags: value})}
-                    getCreateLabel={(query: string) => `+ Создать "${query}"`}
-                    onCreate={(query: string) => query}
                     searchable
                     clearable
                   />
@@ -413,12 +410,10 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
                         <MultiSelect
                           placeholder="Теги"
                           size="xs"
-                          data={[]}
+                          data={tagOptions}
                           value={file.tags || []}
                           onChange={(value) => updateFileMetadata(file.id, 'tags', value)}
                           disabled={uploading}
-                          getCreateLabel={(query: string) => `+ Создать "${query}"`}
-                          onCreate={(query: string) => query}
                           searchable
                         />
                       </Stack>

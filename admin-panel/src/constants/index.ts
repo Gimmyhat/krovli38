@@ -2,45 +2,6 @@
  * Общие константы для админ-панели
  */
 
-// API URL из переменных окружения Vite или базовый '/api'
-export const API_URL = import.meta.env.VITE_API_URL || '/api';
-
-// Константы для работы с API
-export const API = {
-  BASE_URL: API_URL,
-  TIMEOUT: 30000, // мс для админки больше времени на операции
-  RETRY_COUNT: 2,
-};
-
-// Типы изображений
-export const IMAGE_TYPES = [
-  { value: 'banner', label: 'Баннер' },
-  { value: 'gallery', label: 'Галерея' },
-  { value: 'logo', label: 'Логотип' },
-  { value: 'background', label: 'Фон' },
-  { value: 'content', label: 'Контент' },
-  { value: 'project', label: 'Проект' }
-];
-
-// Разделы сайта
-export const SECTIONS = [
-  { value: 'general', label: 'Общие' },
-  { value: 'home', label: 'Главная' },
-  { value: 'about', label: 'О нас' },
-  { value: 'services', label: 'Услуги' },
-  { value: 'portfolio', label: 'Портфолио' },
-  { value: 'contacts', label: 'Контакты' }
-];
-
-// Доступные теги для изображений
-export const AVAILABLE_TAGS = [
-  { value: 'featured', label: 'Главное' },
-  { value: 'new', label: 'Новое' },
-  { value: 'background', label: 'Фон' },
-  { value: 'small', label: 'Маленькое' },
-  { value: 'large', label: 'Большое' }
-];
-
 // Цвета бренда (те же, что и на основном сайте)
 export const COLORS = {
   PRIMARY: '#3B82F6', // blue-500
@@ -51,6 +12,13 @@ export const COLORS = {
   ERROR: '#EF4444', // red-500
   WARNING: '#F59E0B', // amber-500
   INFO: '#3B82F6', // blue-500
+};
+
+// Константы для работы с API
+export const API = {
+  BASE_URL: '/api',
+  TIMEOUT: 30000, // мс для админки больше времени на операции
+  RETRY_COUNT: 2,
 };
 
 // Пути в админ-панели

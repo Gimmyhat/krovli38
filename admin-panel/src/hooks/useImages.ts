@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { fetchImages, ImageData, ImagesResponse } from '../api/imageApi';
+import { fetchImages, ImageData } from '../api/imageApi';
 
 // Объявляем интерфейс для параметров запроса изображений
 export interface ImageQueryParams {

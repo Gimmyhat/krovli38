@@ -45,17 +45,6 @@ export const getDefaultSettings = () => {
       order: 3
     },
     {
-      key: 'logo_margin',
-      name: 'Отступы логотипа',
-      type: 'number',
-      group: 'general',
-      value: -4,
-      defaultValue: -4,
-      options: { min: -16, max: 16 },
-      description: 'Отступы логотипа от краев (отрицательные значения уменьшают отступы)',
-      order: 4
-    },
-    {
       key: 'site_description',
       name: 'Описание сайта',
       type: 'textarea',

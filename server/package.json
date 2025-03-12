@@ -11,7 +11,6 @@
     "check-admin": "ts-node src/scripts/checkAdmin.ts",
     "seed-gallery": "ts-node src/scripts/seedGallery.ts",
     "add-logo-size": "ts-node src/scripts/addLogoSizeSetting.ts",
-    "add-logo-margin": "ts-node src/scripts/addLogoMarginSetting.ts",
     "show-settings": "ts-node src/scripts/showSettings.ts",
     "update-logo-path": "ts-node src/scripts/updateLogoPath.ts"
   },

@@ -1,110 +1,50 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Text, 
   Button, 
+  Group, 
   Grid, 
   Card, 
   Image, 
-  Group, 
-  ActionIcon, 
-  TextInput, 
-  Select, 
-  Pagination, 
-  Loader, 
-  Stack, 
-  Title, 
   Badge, 
-  Switch,
-  MultiSelect,
-  Modal,
-  Textarea} from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+  ActionIcon, 
+  Modal, 
+  TextInput,
+  Select,
+  LoadingOverlay,
+  Alert,
+  Menu,
+  Pagination,
+  Paper,
+  Flex,
+  Center,
+  Tooltip
+} from '@mantine/core';
 import { 
-  IconCopy, 
-  IconEdit, 
+  IconPencil, 
   IconTrash, 
-  IconCloudUpload, 
   IconSearch, 
-  IconX, 
-  IconExternalLink 
+  IconRefresh,
+  IconDotsVertical,
+  IconAlertCircle,
+  IconPhoto,
+  IconCloudUpload
 } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
 import { fetchImages, updateImage, deleteImage, ImageData, ImageUpdateData } from '../../api/imageApi';
 import CloudinaryMediaLibraryComponent from './CloudinaryMediaLibrary';
-import { IMAGE_TYPES, SECTIONS } from '../../constants';
-import NativeUploadAdapter from './NativeUploadAdapter';
-
-// Копируем необходимый интерфейс ImageQueryParams, чтобы не зависеть от внешнего модуля
-interface ImageQueryParams {
-  page?: number;
-  limit?: number;
-  type?: string;
-  section?: string;
-  search?: string;
-  isActive?: boolean;
-  tags?: string[];
-  sort?: string;
-}
-
-// Имитируем хук useImages для совместимости с существующим кодом
-const useImages = () => {
-  const [images, setImages] = useState<ImageData[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pagination, setPagination] = useState({
-    totalItems: 0,
-    currentPage: 1,
-    totalPages: 0,
-    limit: 10
-  });
-
-  const getImages = useCallback(async (query?: ImageQueryParams) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const result = await fetchImages(query);
-      setImages(result.images || []);
-      setPagination(result.pagination || {
-        totalItems: 0,
-        currentPage: 1,
-        totalPages: 0,
-        limit: 10
-      });
-      return result;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Произошла ошибка при загрузке изображений');
-      return { 
-        images: [], 
-        pagination: {
-          totalItems: 0,
-          currentPage: 1,
-          totalPages: 0,
-          limit: 10
-        }
-      };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  return {
-    images,
-    loading,
-    error,
-    totalCount: pagination.totalItems,
-    pagination,
-    getImages
-  };
-};
+import CloudinaryUploadWidgetComponent from './CloudinaryUploadWidget';
+import { IMAGE_TYPES, SECTIONS } from '../../services/cloudinaryConfig';
 
 interface ImagesGalleryProps {
   refreshTrigger?: number;
 }
 
 const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => {
-  // Используем хук useImages для работы с изображениями
-  const { images, loading, error, totalCount, pagination, getImages } = useImages();
+  const [images, setImages] = useState<ImageData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   // Состояния для фильтрации и поиска
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
@@ -113,6 +53,8 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
   
   // Состояния для пагинации
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   
   // Состояния для модального окна редактирования
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -122,19 +64,38 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
   
   // Состояния для Cloudinary виджетов
   const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
-  const [uploadOpened, setUploadOpened] = useState(false);
+  const [uploadWidgetOpen, setUploadWidgetOpen] = useState(false);
   
   // Загрузка изображений
   const loadImages = async () => {
-    const params: ImageQueryParams = {
-      page: currentPage,
-      limit: 12,
-      type: typeFilter || undefined,
-      section: sectionFilter || undefined,
-      search: searchQuery || undefined
-    };
+    setLoading(true);
+    setError(null);
     
-    await getImages(params);
+    try {
+      const params = {
+        page: currentPage,
+        limit: 12,
+        type: typeFilter || undefined,
+        section: sectionFilter || undefined,
+        search: searchQuery || undefined
+      };
+      
+      const response = await fetchImages(params);
+      
+      // Добавляем проверки на undefined
+      setImages(response?.images || []);
+      setTotalPages(response?.pagination?.totalPages || 1);
+      setTotalItems(response?.pagination?.totalItems || 0);
+    } catch (error) {
+      console.error('Ошибка при загрузке изображений:', error);
+      setError('Не удалось загрузить изображения. Пожалуйста, попробуйте позже.');
+      // Устанавливаем пустые значения при ошибке
+      setImages([]);
+      setTotalPages(1);
+      setTotalItems(0);
+    } finally {
+      setLoading(false);
+    }
   };
   
   // Загружаем изображения при монтировании и при изменении фильтров
@@ -180,7 +141,7 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
       console.error('Ошибка при удалении изображения:', error);
       notifications.show({
         title: 'Ошибка',
-        message: 'Не удалось удалить изображение. Пожалуйста, попробуйте позже.',
+        message: 'Не удалось удалить изображение',
         color: 'red'
       });
     }
@@ -201,12 +162,11 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
       });
       
       setEditModalOpen(false);
-      setCurrentImage(null);
     } catch (error) {
       console.error('Ошибка при обновлении изображения:', error);
       notifications.show({
         title: 'Ошибка',
-        message: 'Не удалось обновить изображение. Пожалуйста, попробуйте позже.',
+        message: 'Не удалось обновить изображение',
         color: 'red'
       });
     } finally {
@@ -217,6 +177,8 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
   // Обработчик выбора изображения из Cloudinary Media Library
   const handleMediaLibrarySelect = async (selectedImages: ImageData[]) => {
     try {
+      setLoading(true);
+      
       notifications.show({
         title: 'Обработка',
         message: 'Добавление выбранных изображений в библиотеку...',
@@ -235,292 +197,291 @@ const ImagesGallery: React.FC<ImagesGalleryProps> = ({ refreshTrigger = 0 }) => 
       console.error('Ошибка при добавлении изображений из Media Library:', error);
       notifications.show({
         title: 'Ошибка',
-        message: 'Не удалось добавить изображения из Media Library',
+        message: 'Не удалось добавить изображения',
         color: 'red'
       });
+    } finally {
+      setLoading(false);
     }
-  };
-  
-  // Обработчик изменения страницы
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
   };
   
   return (
     <Box>
-      {/* Фильтры */}
-      <Grid mb="md">
-        <Grid.Col span={4}>
-          <TextInput
-            placeholder="Поиск изображений"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.currentTarget.value)}
-            rightSection={
-              searchQuery ? (
-                <ActionIcon onClick={() => setSearchQuery('')}>
-                  <IconX size={16} />
-                </ActionIcon>
-              ) : (
-                <IconSearch size={16} />
-              )
-            }
-          />
-        </Grid.Col>
-        
-        <Grid.Col span={3}>
-          <Select
-            placeholder="Фильтр по типу"
-            value={typeFilter}
-            onChange={setTypeFilter}
-            data={IMAGE_TYPES}
-            clearable
-          />
-        </Grid.Col>
-        
-        <Grid.Col span={3}>
-          <Select
-            placeholder="Фильтр по разделу"
-            value={sectionFilter}
-            onChange={setSectionFilter}
-            data={SECTIONS}
-            clearable
-          />
-        </Grid.Col>
-        
-        <Grid.Col span={2}>
-          <Button 
-            variant="outline" 
-            onClick={handleResetFilters}
-            disabled={!typeFilter && !sectionFilter && !searchQuery}
-          >
-            Сбросить
-          </Button>
-        </Grid.Col>
-      </Grid>
-      
-      {/* Заголовок и кнопки */}
-      <Group justify="space-between" mb="lg">
+      {/* Верхняя панель с кнопками */}
+      <Paper shadow="xs" p="md" mb="md">
         <Group>
-          <Title order={2}>Изображения</Title>
-          
-          {totalCount > 0 && (
-            <Text size="sm" c="dimmed">
-              Всего изображений: {totalCount}
-            </Text>
-          )}
-        </Group>
-        
-        <Group>
-          <Button
-            leftSection={<IconCloudUpload size={16} />}
-            onClick={() => setMediaLibraryOpen(true)}
-          >
-            Медиа библиотека
-          </Button>
-          
           <Button 
             leftSection={<IconCloudUpload size={16} />} 
-            onClick={() => setUploadOpened(true)}
+            onClick={() => setUploadWidgetOpen(true)}
           >
             Загрузить изображения
           </Button>
+          
+          <Button 
+            leftSection={<IconPhoto size={16} />} 
+            variant="light"
+            onClick={() => setMediaLibraryOpen(true)}
+          >
+            Библиотека Cloudinary
+          </Button>
+          
+          <Button 
+            leftSection={<IconRefresh size={16} />} 
+            variant="subtle"
+            onClick={loadImages}
+          >
+            Обновить
+          </Button>
+          
+          {totalItems > 0 && (
+            <Text size="sm" c="dimmed">
+              Всего изображений: {totalItems}
+            </Text>
+          )}
         </Group>
-      </Group>
+      </Paper>
+      
+      {/* Фильтры */}
+      <Paper shadow="xs" p="md" mb="md">
+        <Grid align="flex-end">
+          <Grid.Col span={{ base: 12, sm: 4 }}>
+            <TextInput
+              placeholder="Поиск изображений"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              leftSection={<IconSearch size={16} />}
+            />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 3 }}>
+              <Select
+              placeholder="Тип изображения"
+                value={typeFilter}
+                onChange={setTypeFilter}
+              data={IMAGE_TYPES}
+                clearable
+              />
+            </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 3 }}>
+              <Select
+              placeholder="Раздел"
+                value={sectionFilter}
+                onChange={setSectionFilter}
+              data={SECTIONS}
+                clearable
+              />
+            </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 2 }}>
+            <Button 
+              variant="light" 
+              onClick={handleResetFilters}
+              fullWidth
+            >
+              Сбросить
+            </Button>
+            </Grid.Col>
+          </Grid>
+        </Paper>
       
       {/* Список изображений */}
-      {loading ? (
-        <Box style={{ display: 'flex', justifyContent: 'center', padding: '50px 0' }}>
-          <Loader size="lg" />
-        </Box>
-      ) : error ? (
-        <Box style={{ textAlign: 'center', padding: '50px 0' }}>
-          <Text color="red">{error}</Text>
-          <Button mt="md" onClick={loadImages}>Повторить загрузку</Button>
-        </Box>
-      ) : images.length === 0 ? (
-        <Box style={{ textAlign: 'center', padding: '50px 0' }}>
-          <Text size="lg" fw={500} mb="md">Изображений не найдено</Text>
-          <Text color="dimmed" mb="lg">
-            {searchQuery || typeFilter || sectionFilter
-              ? 'Попробуйте изменить параметры поиска или сбросить фильтры'
-              : 'Загрузите изображения, чтобы они появились здесь'}
+      <Box pos="relative" mih={400}>
+        <LoadingOverlay visible={loading} />
+        
+        {error && (
+          <Alert color="red" icon={<IconAlertCircle size={16} />}>
+            {error}
+          </Alert>
+        )}
+        
+        {!loading && !error && images.length === 0 ? (
+          <Center py={50}>
+            <Box ta="center">
+              <IconPhoto size={48} color="gray" style={{ opacity: 0.5 }} />
+              <Text c="dimmed" mt="md">
+            Изображения не найдены
           </Text>
-          <Button 
-            variant="outline" 
-            leftSection={<IconCloudUpload size={18} />}
-            onClick={() => setUploadOpened(true)}
-          >
-            Загрузить новые изображения
-          </Button>
         </Box>
+          </Center>
       ) : (
           <Grid>
-            {images.map((image: ImageData) => (
+            {images.map((image) => (
               <Grid.Col key={image._id} span={{ base: 12, sm: 6, md: 4, lg: 3 }}>
                 <Card shadow="sm" padding="sm">
                   <Card.Section>
-                    <Image
-                      src={image.secure_url}
-                      alt={image.alt}
+                      <Image
+                        src={image.secure_url}
                       height={200}
-                      fit="contain"
+                      alt={image.alt || 'Image'}
+                        fit="cover"
                     />
                   </Card.Section>
                   
-                  <Text fw={500} mt="sm" mb={0} lineClamp={1} title={image.title || ''}>
+                  <Text mt="sm" fw={500} lineClamp={1}>
                     {image.title || 'Без названия'}
                   </Text>
                   
-                  <Group mt="xs" gap={6}>
+                  <Flex gap={5} wrap="wrap" mt={5}>
                     {image.type && (
-                      <Badge size="sm" color="blue">{image.type}</Badge>
+                      <Badge size="sm" variant="light">
+                        {IMAGE_TYPES.find(t => t.value === image.type)?.label || image.type}
+                      </Badge>
                     )}
                     {image.section && (
-                      <Badge size="sm" color="green">{image.section}</Badge>
+                      <Badge size="sm" variant="outline">
+                        {SECTIONS.find(s => s.value === image.section)?.label || image.section}
+                        </Badge>
                     )}
-                  </Group>
+                  </Flex>
                   
-                  <Text size="xs" color="dimmed" mt="xs" mb="sm">
-                    {new Date(image.createdAt).toLocaleDateString()}
-                  </Text>
-                  
-                  <Group justify="flex-end" mt="xs">
-                    <ActionIcon onClick={() => window.open(image.secure_url, '_blank')}>
-                      <IconExternalLink size={18} />
-                    </ActionIcon>
-                    <ActionIcon onClick={() => handleCopyUrl(image.secure_url)}>
-                      <IconCopy size={18} />
-                    </ActionIcon>
-                    <ActionIcon 
-                      onClick={() => {
-                        setCurrentImage(image);
-                        setEditFormData({
-                          alt: image.alt,
-                          title: image.title,
-                          type: image.type,
-                          section: image.section,
-                          tags: image.tags,
-                          isActive: image.isActive
-                        });
-                        setEditModalOpen(true);
-                      }}
-                    >
-                      <IconEdit size={18} />
-                    </ActionIcon>
-                    <ActionIcon 
-                      color="red" 
-                      onClick={() => handleDeleteImage(image)}
-                    >
-                      <IconTrash size={18} />
-                    </ActionIcon>
-                  </Group>
+                  <Group mt="md" justify="space-between">
+                    <Tooltip label="Копировать URL">
+                      <Button 
+                        variant="light" 
+                        size="xs"
+                        onClick={() => handleCopyUrl(image.secure_url)}
+                      >
+                        Копировать URL
+                      </Button>
+                    </Tooltip>
+                    
+                    <Menu shadow="md" width={200}>
+                          <Menu.Target>
+                        <ActionIcon variant="subtle">
+                              <IconDotsVertical size={16} />
+                            </ActionIcon>
+                          </Menu.Target>
+                          
+                          <Menu.Dropdown>
+                            <Menu.Item 
+                          leftSection={<IconPencil size={14} />}
+                          onClick={() => {
+                            setCurrentImage(image);
+                            setEditFormData({
+                              title: image.title,
+                              alt: image.alt,
+                              type: image.type,
+                              section: image.section
+                            });
+                            setEditModalOpen(true);
+                          }}
+                            >
+                              Редактировать
+                            </Menu.Item>
+                            <Menu.Item 
+                          leftSection={<IconTrash size={14} />}
+                              color="red" 
+                          onClick={() => handleDeleteImage(image)}
+                            >
+                              Удалить
+                            </Menu.Item>
+                          </Menu.Dropdown>
+                        </Menu>
+                      </Group>
                 </Card>
               </Grid.Col>
             ))}
           </Grid>
         )}
-        
-        {/* Пагинация */}
-        {pagination.totalPages > 1 && (
-          <Group justify="center" mt="xl">
-                <Pagination 
-              value={currentPage}
-              onChange={handlePageChange}
-              total={pagination.totalPages}
+      </Box>
+          
+      {/* Пагинация */}
+      {totalPages > 1 && (
+        <Group justify="center" mt="xl">
+              <Pagination 
+            value={currentPage}
+            onChange={setCurrentPage}
+            total={totalPages}
+          />
+        </Group>
+      )}
+      
+      {/* Модальное окно редактирования */}
+      <Modal
+        opened={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        title="Редактирование изображения"
+      >
+        {currentImage && (
+          <Box>
+                <Image
+                  src={currentImage.secure_url}
+              alt={currentImage.alt || 'Preview'}
+              fit="contain"
+              h={200}
+              mb="md"
             />
-          </Group>
+            
+                <TextInput
+              label="Название"
+              placeholder="Введите название изображения"
+                  value={editFormData.title || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                  mb="sm"
+                />
+                
+            <TextInput
+              label="Alt текст"
+                  placeholder="Введите альтернативный текст"
+                  value={editFormData.alt || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, alt: e.target.value })}
+                  mb="sm"
+                />
+                
+                <Select
+              label="Тип"
+              placeholder="Выберите тип изображения"
+                  data={IMAGE_TYPES}
+                  value={editFormData.type || ''}
+                  onChange={(value) => setEditFormData({ ...editFormData, type: value || undefined })}
+              mb="sm"
+                  clearable
+                />
+                
+                <Select
+              label="Раздел"
+                  placeholder="Выберите раздел"
+                  data={SECTIONS}
+                  value={editFormData.section || ''}
+                  onChange={(value) => setEditFormData({ ...editFormData, section: value || undefined })}
+              mb="lg"
+                  clearable
+            />
+            
+            <Group justify="flex-end">
+              <Button variant="light" onClick={() => setEditModalOpen(false)}>
+                Отмена
+              </Button>
+              <Button 
+                onClick={() => handleUpdateImage(currentImage, editFormData)}
+                loading={saving}
+              >
+                Сохранить
+              </Button>
+            </Group>
+          </Box>
         )}
-        
-        {/* Модальное окно редактирования */}
-        <Modal
-          opened={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
-          title="Редактирование изображения"
-        >
-          {currentImage && (
-            <Stack>
-              <Image
-                src={currentImage.secure_url}
-                alt={currentImage.alt}
-                height={200}
-                fit="contain"
-                mb="md"
-              />
-              
-              <TextInput
-                label="Название"
-                value={editFormData.title || ''}
-                onChange={(e) => setEditFormData({...editFormData, title: e.currentTarget.value})}
-              />
-              
-              <Textarea
-                label="Alt текст"
-                value={editFormData.alt || ''}
-                onChange={(e) => setEditFormData({...editFormData, alt: e.currentTarget.value})}
-                autosize
-                minRows={2}
-              />
-              
-              <Select
-                label="Тип изображения"
-                data={IMAGE_TYPES}
-                value={editFormData.type || ''}
-                onChange={(value) => setEditFormData({...editFormData, type: value || ''})}
-                clearable
-              />
-              
-              <Select
-                label="Раздел сайта"
-                data={SECTIONS}
-                value={editFormData.section || ''}
-                onChange={(value) => setEditFormData({...editFormData, section: value || ''})}
-                clearable
-              />
-              
-              <MultiSelect
-                label="Теги"
-                data={[]}
-                value={editFormData.tags || []}
-                onChange={(value) => setEditFormData({...editFormData, tags: value})}
-                clearable
-                searchable
-              />
-              
-              <Switch
-                label="Активно"
-                checked={editFormData.isActive === undefined ? true : editFormData.isActive}
-                onChange={(e) => setEditFormData({...editFormData, isActive: e.currentTarget.checked})}
-                mt="xs"
-              />
-              
-              <Group justify="flex-end" mt="md">
-                <Button variant="outline" onClick={() => setEditModalOpen(false)}>
-                  Отмена
-                </Button>
-                <Button 
-                  onClick={() => handleUpdateImage(currentImage, editFormData)}
-                  loading={saving}
-                >
-                  Сохранить
-                </Button>
-              </Group>
-            </Stack>
-          )}
-        </Modal>
-        
-        {/* Модальное окно Cloudinary Media Library */}
-        <CloudinaryMediaLibraryComponent
-          opened={mediaLibraryOpen}
-          onClose={() => setMediaLibraryOpen(false)}
-          onSelect={handleMediaLibrarySelect}
-        />
-        
-        {/* Модальное окно загрузки */}
-        <NativeUploadAdapter
-          opened={uploadOpened}
-          onClose={() => setUploadOpened(false)}
-          onUploadSuccess={loadImages}
-        />
+      </Modal>
+      
+      {/* Модальное окно Cloudinary Media Library */}
+      <CloudinaryMediaLibraryComponent
+        opened={mediaLibraryOpen}
+        onClose={() => setMediaLibraryOpen(false)}
+        onSelect={handleMediaLibrarySelect}
+        multiple={true}
+        maxFiles={10}
+        filterOptions={{
+          type: typeFilter || undefined,
+          section: sectionFilter || undefined
+        }}
+      />
+      
+      {/* Модальное окно Cloudinary Upload Widget */}
+      <CloudinaryUploadWidgetComponent
+        opened={uploadWidgetOpen}
+        onClose={() => setUploadWidgetOpen(false)}
+        onUploadSuccess={loadImages}
+        multiple={true}
+        maxFiles={10}
+      />
     </Box>
   );
 };
