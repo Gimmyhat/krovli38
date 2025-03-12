@@ -189,13 +189,21 @@ export const getUploadWidgetConfig = (options: UploadWidgetOptions = {}) => {
     tags: options.tags,
     // Добавляем полифилл для crypto.randomUUID внутри
     preBoot: function() {
-      if (typeof window.crypto === 'undefined' || typeof window.crypto.randomUUID !== 'function') {
+      // Четко и явно проверяем доступность crypto и crypto.randomUUID
+      const cryptoAvailable = typeof window.crypto !== 'undefined';
+      const randomUUIDAvailable = cryptoAvailable && typeof window.crypto.randomUUID === 'function';
+      
+      if (!cryptoAvailable || !randomUUIDAvailable) {
         console.log('Применяем полифилл для crypto.randomUUID внутри Cloudinary виджета');
-        // Используем приведение типов для обхода проверки TypeScript
-        if (typeof window.crypto === 'undefined') (window as any).crypto = {};
         
+        // Сначала убедимся, что объект crypto существует
+        if (!cryptoAvailable) {
+          (window as any).crypto = {};
+          console.log('Объект crypto создан');
+        }
+        
+        // Добавляем полифилл для getRandomValues, если его нет
         if (typeof window.crypto.getRandomValues !== 'function') {
-          // Используем приведение типов для обхода проверки TypeScript
           (window as any).crypto.getRandomValues = function(array: ArrayBufferView | null) {
             if (!array) return array;
             
@@ -209,27 +217,28 @@ export const getUploadWidgetConfig = (options: UploadWidgetOptions = {}) => {
             }
             return array;
           };
+          console.log('Полифилл crypto.getRandomValues создан');
         }
         
-        if (typeof window.crypto.randomUUID !== 'function') {
-          // Используем приведение типов для обхода проверки TypeScript
+        // Добавляем полифилл для randomUUID, если его нет
+        if (!randomUUIDAvailable) {
           (window as any).crypto.randomUUID = function(): string {
-            const hexDigits = '0123456789abcdef';
-            let uuid = '';
-            
-            for (let i = 0; i < 36; i++) {
-              if (i === 8 || i === 13 || i === 18 || i === 23) {
-                uuid += '-';
-              } else if (i === 14) {
-                uuid += '4';
-              } else if (i === 19) {
-                uuid += hexDigits.charAt(Math.floor(Math.random() * 4) + 8);
-              } else {
-                uuid += hexDigits.charAt(Math.floor(Math.random() * 16));
-              }
-            }
-            return uuid;
+            // Используем простейшую реализацию UUID v4
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+              const r = Math.random() * 16 | 0;
+              const v = c === 'x' ? r : (r & 0x3 | 0x8);
+              return v.toString(16);
+            });
           };
+          console.log('Полифилл crypto.randomUUID создан');
+          
+          // Проверка работы полифилла
+          try {
+            const testUUID = (window as any).crypto.randomUUID();
+            console.log('Полифилл успешно установлен, тестовый UUID:', testUUID);
+          } catch (e) {
+            console.error('Ошибка при проверке полифилла crypto.randomUUID:', e);
+          }
         }
       }
     }

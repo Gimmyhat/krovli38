@@ -23,6 +23,34 @@ import cloudinaryConfig, { IMAGE_TYPES, SECTIONS, AVAILABLE_TAGS } from '../../s
 import { createImageFromCloudinary } from '../../api/imageApi';
 import type { CloudinaryUploadWidget, CloudinaryUploadWidgetResult } from '../../types/cloudinary';
 
+// Сначала добавим полифилл для crypto.randomUUID, если его нет
+if (typeof window !== 'undefined') {
+  if (typeof window.crypto === 'undefined') {
+    console.warn('Объект crypto не обнаружен в окружении, создаём полифилл');
+    (window as any).crypto = {};
+  }
+  
+  if (typeof window.crypto.randomUUID !== 'function') {
+    console.warn('Функция crypto.randomUUID не обнаружена, создаём полифилл');
+    
+    (window as any).crypto.randomUUID = function() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    };
+    
+    // Проверка работы полифилла
+    try {
+      const testUUID = (window as any).crypto.randomUUID();
+      console.log('Полифилл успешно установлен:', testUUID);
+      (window as any)._cryptoPolyfilled = true;
+    } catch (error) {
+      console.error('Ошибка при проверке полифилла:', error);
+    }
+  }
+}
+
 // Расширяем глобальный объект Window для безопасного доступа к crypto
 declare global {
   interface Window {
@@ -184,9 +212,9 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
   useEffect(() => {
     if (opened) {
       try {
-        // Проверка полифилла перед использованием Cloudinary
-        if (!window._cryptoPolyfilled || typeof window.crypto === 'undefined' || typeof window.crypto.randomUUID !== 'function') {
-          console.warn('Полифилл crypto.randomUUID не установлен или не работает, применяем внутренний полифилл');
+        // Мы уже добавили полифилл в начале файла, но убедимся, что он работает
+        if (typeof window.crypto === 'undefined' || typeof window.crypto.randomUUID !== 'function') {
+          console.warn('Полифилл crypto.randomUUID всё ещё не работает, применяем снова');
           
           // Используем приведение типов для обхода проверки TypeScript
           if (typeof window.crypto === 'undefined') (window as any).crypto = {};
