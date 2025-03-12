@@ -3,12 +3,9 @@ import {
   Container, 
   Title, 
   Text, 
-  Box, 
   Button, 
   Grid, 
-  Group,
   Paper,
-  Code,
   Divider
 } from '@mantine/core';
 import MediaUploader from '../components/Media/MediaUploader';
