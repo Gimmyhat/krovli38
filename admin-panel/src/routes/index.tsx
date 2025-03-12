@@ -9,6 +9,8 @@ import Gallery from '../pages/Gallery';
 import Settings from '../pages/Settings';
 import Layout from '../components/Layout';
 import { ReactNode } from 'react';
+import MediaPage from '../pages/MediaPage';
+import TestSelectorPage from '../pages/TestSelectorPage';
 
 // Компонент для защищенных маршрутов
 interface ProtectedRouteProps {
@@ -53,6 +55,8 @@ const AppRoutes = () => {
         <Route path="logs" element={<Logs />} />
         <Route path="images" element={<Images />} />
         <Route path="gallery" element={<Gallery />} />
+        <Route path="media" element={<MediaPage />} />
+        <Route path="test-selector" element={<TestSelectorPage />} />
         <Route path="settings" element={<Settings />} />
       </Route>
 

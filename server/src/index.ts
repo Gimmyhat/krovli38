@@ -12,10 +12,13 @@ import imageRoutes from './routes/imageRoutes';
 import settingsRoutes from './routes/settings';
 // @ts-ignore - временная заглушка для маршрутов галереи
 import galleryRoutes from './routes/galleryRoutes';
+// Новый импорт для локального хранилища изображений
+import mediaRoutes from './routes/media-routes';
 import { initializeAdmin } from './scripts/init';
 import * as cloudinaryConfig from './config/cloudinary';
 import { SERVER, DATABASE } from './constants';
 import { ensureAllSettings, ensureSetting } from './utils/ensureSettings';
+import path from 'path';
 
 // Загрузка переменных окружения
 dotenv.config();
@@ -55,6 +58,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(httpLogger); // Добавляем логирование HTTP запросов
 
+// Статические файлы
+app.use('/uploads', express.static(path.join(process.cwd(), 'public/uploads')));
+
 // Маршруты
 app.use('/api/auth', authRoutes);
 app.use('/api/requests', requestRoutes);
@@ -62,6 +68,7 @@ app.use('/api/logs', logsRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/gallery', galleryRoutes);
+app.use('/api/media', mediaRoutes);
 
 // Базовый маршрут API
 app.get('/api', (req, res) => {
@@ -73,7 +80,8 @@ app.get('/api', (req, res) => {
       '/api/logs',
       '/api/images',
       '/api/settings',
-      '/api/gallery'
+      '/api/gallery',
+      '/api/media'
     ]
   });
 });

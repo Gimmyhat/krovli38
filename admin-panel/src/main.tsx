@@ -36,6 +36,10 @@ import { createRoot } from 'react-dom/client'
 import './utils/axios'
 import './index.css'
 import App from './App.tsx'
+import { initUuidPolyfill } from './utils/crypto-uuid-helper'
+
+// Инициализируем полифилл для crypto.randomUUID
+initUuidPolyfill();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

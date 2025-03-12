@@ -3,6 +3,63 @@
   <head>
     <meta charset="UTF-8" />
     
+    <!-- СУПЕР-КРИТИЧНЫЙ ИНЛАЙН-ПОЛИФИЛЛ, ВЫПОЛНЯЕТСЯ ПЕРВЫМ ПЕРЕД ЛЮБЫМИ СКРИПТАМИ -->
+    <script>
+      (function() {
+        try {
+          // Проверяем наличие функции и создаем ее если отсутствует
+          if (typeof window.crypto === 'undefined') {
+            window.crypto = {};
+          }
+          
+          if (typeof window.crypto.randomUUID !== 'function') {
+            window.crypto.randomUUID = function() {
+              return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+              });
+            };
+            console.log('[Критичный полифилл] crypto.randomUUID добавлен');
+          }
+          
+          if (typeof window.crypto.getRandomValues !== 'function') {
+            window.crypto.getRandomValues = function(array) {
+              for (var i = 0; i < array.length; i++) {
+                array[i] = Math.floor(Math.random() * 256);
+              }
+              return array;
+            };
+            console.log('[Критичный полифилл] crypto.getRandomValues добавлен');
+          }
+          
+          // Защита от перезаписи - переопределяем геттеры свойств crypto
+          var originalCrypto = window.crypto;
+          Object.defineProperty(window, 'crypto', {
+            configurable: true,
+            enumerable: true,
+            get: function() {
+              return originalCrypto;
+            },
+            set: function(newValue) {
+              console.warn('[Критичный полифилл] Попытка заменить объект crypto - блокируем');
+              // Если свойства отсутствуют в новом объекте, добавляем их
+              if (newValue) {
+                if (!newValue.randomUUID) newValue.randomUUID = originalCrypto.randomUUID;
+                if (!newValue.getRandomValues) newValue.getRandomValues = originalCrypto.getRandomValues;
+              }
+              originalCrypto = newValue;
+            }
+          });
+          
+          // Проверяем работу полифилла
+          var testUUID = window.crypto.randomUUID();
+          console.log('[Критичный полифилл] Успешно, тест UUID:', testUUID);
+        } catch (e) {
+          console.error('[Критичный полифилл] Ошибка:', e);
+        }
+      })();
+    </script>
+    
     <!-- Фавиконки с двойными путями для совместимости -->
     <link rel="icon" type="image/svg+xml" href="/admin/favicon.svg" />
     <link rel="icon" type="image/png" href="/admin/favicon.png" />
@@ -14,34 +71,14 @@
     <link rel="prefetch" href="/admin/vite.svg" as="image" />
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.cloudinary.com; frame-src 'self' *.cloudinary.com data: blob:; img-src 'self' data: blob: *.cloudinary.com res.cloudinary.com; connect-src 'self' *.cloudinary.com api.cloudinary.com; style-src 'self' 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.cloudinary.com cdn.jsdelivr.net; frame-src 'self' *.cloudinary.com data: blob:; img-src 'self' data: blob: *.cloudinary.com res.cloudinary.com; connect-src 'self' *.cloudinary.com api.cloudinary.com cdn.jsdelivr.net; style-src 'self' 'unsafe-inline';">
     <title>Админ-панель | Кровли38</title>
-    
-    <!-- ВАЖНО: Проверка наличия объекта crypto перед любыми скриптами -->
-    <script>
-      if (typeof window.crypto === 'undefined') {
-        console.log('crypto объект не обнаружен, создаем заглушку...');
-        window.crypto = {
-          getRandomValues: function(array) {
-            for (let i = 0; i < array.length; i++) {
-              array[i] = Math.floor(Math.random() * 256);
-            }
-            return array;
-          },
-          randomUUID: function() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-              const r = Math.random() * 16 | 0;
-              const v = c === 'x' ? r : (r & 0x3 | 0x8);
-              return v.toString(16);
-            });
-          }
-        };
-        console.log('Создан базовый объект crypto с полифиллами для randomUUID и getRandomValues');
-      }
-    </script>
     
     <!-- ВАЖНО: Внешний полифилл загружается до всех других скриптов -->
     <script src="/admin/crypto-polyfill.js"></script>
+    
+    <!-- UUID полифилл с использованием библиотеки uuid -->
+    <script src="/admin/uuid-polyfill.js"></script>
     
     <!-- Модуль мониторинга ошибок -->
     <script src="/admin/error-monitor.js"></script>
