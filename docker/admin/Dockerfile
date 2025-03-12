@@ -20,15 +20,8 @@ ENV NODE_ENV=production
 ENV VITE_API_URL=/api
 ENV VITE_BASE_URL=/admin
 
-# Создаем директории для скриптов полифиллов
+# Копируем все иконки в директорию public/admin
 RUN mkdir -p public/admin
-
-# Копируем дополнительные файлы
-COPY docker/admin/scripts/crypto-polyfill.js public/admin/
-COPY docker/admin/scripts/cloudinary-helper.js public/admin/
-COPY docker/admin/scripts/meta-polyfill.js public/admin/
-
-# Копируем все иконки в public/admin директорию
 RUN cp -r public/* public/admin/ || true
 
 # Build the application
@@ -44,11 +37,14 @@ RUN rm -rf /usr/share/nginx/html/*
 COPY --from=build /app/dist /usr/share/nginx/html/admin
 COPY --from=build /app/public/admin /usr/share/nginx/html/admin/
 
-# Modify index.html для безопасного подключения полифиллов
-RUN sed -i 's/<head>/<head>\n  <script>\n    \/\/ Базовый полифилл для crypto.randomUUID, внедренный напрямую\n    try {\n      if (typeof window.crypto === "undefined") window.crypto = {};\n      if (typeof window.crypto.randomUUID !== "function") {\n        window.crypto.randomUUID = function() {\n          return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(\/[xy]\/g, function(c) {\n            var r = Math.random() * 16 | 0, v = c === "x" ? r : (r & 0x3 | 0x8);\n            return v.toString(16);\n          });\n        };\n        console.log("Inline polyfill активирован");\n      }\n    } catch (e) {\n      console.error("Ошибка в inline polyfill:", e);\n    }\n  <\/script>/' /usr/share/nginx/html/admin/index.html
+# Создаем файл с полифиллом напрямую - максимально простая реализация
+RUN echo '(function(){try{window.crypto=window.crypto||{};window.crypto.randomUUID=window.crypto.randomUUID||function(){return Date.now().toString(36)+Math.random().toString(36).substring(2,15)};console.log("Simple polyfill активирован");}catch(e){console.error("Ошибка:",e);}})();' > /usr/share/nginx/html/admin/crypto-simple.js
 
-# Добавляем скрипты после базового полифилла
-RUN sed -i '/<\/head>/ i \  <script src="\/admin\/meta-polyfill.js"><\/script>\n  <script src="\/admin\/crypto-polyfill.js"><\/script>\n  <script src="\/admin\/cloudinary-helper.js"><\/script>' /usr/share/nginx/html/admin/index.html
+# Вставляем прямой полифилл в head
+RUN sed -i 's/<head>/<head><script>window.crypto=window.crypto||{};window.crypto.randomUUID=window.crypto.randomUUID||function(){return Date.now().toString(36)+Math.random().toString(36).substring(2,15)};<\/script><script src="\/admin\/crypto-simple.js"><\/script>/' /usr/share/nginx/html/admin/index.html
+
+# Вставляем дополнительную проверку в body
+RUN sed -i 's/<body>/<body><script>try{var test=window.crypto.randomUUID();console.log("UUID test:",test);}catch(e){console.error("UUID test failed:",e);window.crypto=window.crypto||{};window.crypto.randomUUID=function(){return Date.now().toString(36)+Math.random().toString(36).substring(2,15)}}<\/script>/' /usr/share/nginx/html/admin/index.html
 
 # Copy nginx configuration
 COPY docker/admin/nginx.conf /etc/nginx/conf.d/default.conf
