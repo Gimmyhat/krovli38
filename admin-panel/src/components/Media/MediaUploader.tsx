@@ -2,162 +2,207 @@ import React, { useState } from 'react';
 import { 
   Box, Button, Group, Text, Image,
   SimpleGrid, Modal, Stack, TextInput, Select, MultiSelect,
-  LoadingOverlay
+  LoadingOverlay,
+  FileInput,
+  Divider,
+  Textarea,
+  Checkbox,
+  Progress,
+  Grid,
+  Card,
+  CloseButton
 } from '@mantine/core';
 import { useDropzone } from 'react-dropzone';
-import { IconUpload, IconPhoto, IconX, IconAlertCircle } from '@tabler/icons-react';
+import { IconUpload, IconPhoto, IconX, IconAlertCircle, IconCheck, IconFileUpload } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { mediaService, MediaMetadata } from '../../services/mediaService';
 import { IMAGE_TYPES, SECTIONS, AVAILABLE_TAGS } from '../../constants';
+import { uploadMultipleImages } from '../../api/imageApi';
 
-interface MediaUploaderProps {
+export interface MediaUploaderProps {
   opened: boolean;
   onClose: () => void;
-  onUploadSuccess: (images: MediaMetadata[]) => void;
+  onUploadSuccess?: () => void;
   title?: string;
+  multiple?: boolean;
   maxFiles?: number;
 }
 
-// Тип для файлов с путями
-interface FileWithPath extends File {
-  path: string;
+// Расширяем интерфейс для файлов с превью и метаданными
+interface FileWithPreview extends Omit<File, 'type'> {
+  preview?: string;
+  id: string;
+  title?: string;
+  alt?: string;
+  type?: string;
+  section?: string;
+  tags?: string[];
+  originalType: string; // Сохраняем оригинальное свойство type из File
 }
 
-const MediaUploader: React.FC<MediaUploaderProps> = ({
+export const MediaUploader: React.FC<MediaUploaderProps> = ({
   opened,
   onClose,
   onUploadSuccess,
   title = 'Загрузка изображений',
+  multiple = true,
   maxFiles = 10
 }) => {
-  const [files, setFiles] = useState<FileWithPath[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [files, setFiles] = useState<FileWithPreview[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [sharedMetadata, setSharedMetadata] = useState({
+    type: '',
+    section: '',
+    tags: [] as string[],
+    title: '',
+    alt: ''
+  });
+  const [useSharedMetadata, setUseSharedMetadata] = useState(true);
   
-  // Метаданные для всех загружаемых файлов
-  const [type, setType] = useState<string>('content');
-  const [section, setSection] = useState<string>('general');
-  const [tags, setTags] = useState<string[]>([]);
+  const resetForm = () => {
+    setFiles([]);
+    setProgress(0);
+    setSharedMetadata({
+      type: '',
+      section: '',
+      tags: [],
+      title: '',
+      alt: ''
+    });
+  };
   
-  // Для редактирования метаданных каждого файла индивидуально
-  const [filesMeta, setFilesMeta] = useState<{ [path: string]: { alt: string; title: string } }>({});
-
-  // Обработка добавления файлов
-  const handleDrop = (newFiles: FileWithPath[]) => {
-    const validFiles = newFiles.filter(file => file.type.startsWith('image/'));
-    
-    // Ограничиваем количество файлов
-    if (files.length + validFiles.length > maxFiles) {
-      notifications.show({
-        title: 'Предупреждение',
-        message: `Вы можете загрузить максимум ${maxFiles} файлов за раз`,
-        color: 'yellow'
-      });
-      setFiles([...files, ...validFiles.slice(0, maxFiles - files.length)]);
-    } else {
-      setFiles([...files, ...validFiles]);
+  const handleClose = () => {
+    if (uploading) {
+      if (!window.confirm('Загрузка в процессе. Вы уверены, что хотите закрыть окно?')) {
+        return;
+      }
     }
-    
-    // Инициализируем метаданные для новых файлов
-    const newFilesMeta = { ...filesMeta };
-    validFiles.forEach(file => {
-      const fileName = file.name.replace(/\.[^/.]+$/, "");
-      if (!newFilesMeta[file.path]) {
-        newFilesMeta[file.path] = {
-          alt: fileName,
-          title: fileName
-        };
-      }
-    });
-    setFilesMeta(newFilesMeta);
+    resetForm();
+    onClose();
   };
   
-  // Удаление файла из списка
-  const removeFile = (path: string) => {
-    setFiles(files.filter(file => file.path !== path));
+  const handleFileChange = (uploadedFiles: File[] | null) => {
+    if (!uploadedFiles || uploadedFiles.length === 0) return;
     
-    // Удаляем метаданные
-    const newFilesMeta = { ...filesMeta };
-    delete newFilesMeta[path];
-    setFilesMeta(newFilesMeta);
-  };
-
-  // Обновление метаданных для конкретного файла
-  const updateFileMeta = (path: string, field: 'alt' | 'title', value: string) => {
-    setFilesMeta({
-      ...filesMeta,
-      [path]: {
-        ...filesMeta[path],
-        [field]: value
-      }
+    const newFiles: FileWithPreview[] = Array.from(uploadedFiles).map(file => {
+      const fileWithPreview = {
+        ...file,
+        preview: URL.createObjectURL(file),
+        id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
+        originalType: file.type
+      } as FileWithPreview;
+      return fileWithPreview;
+    });
+    
+    setFiles(prevFiles => {
+      const combined = [...prevFiles, ...newFiles];
+      // Ограничиваем количество файлов
+      return combined.slice(0, maxFiles);
     });
   };
-
-  // Загрузка всех файлов
+  
+  const removeFile = (id: string) => {
+    setFiles(prevFiles => {
+      const filtered = prevFiles.filter(file => file.id !== id);
+      // Освобождаем URL для предотвращения утечек памяти
+      const fileToRemove = prevFiles.find(file => file.id === id);
+      if (fileToRemove?.preview) {
+        URL.revokeObjectURL(fileToRemove.preview);
+      }
+      return filtered;
+    });
+  };
+  
+  const updateFileMetadata = (id: string, field: string, value: string | string[]) => {
+    setFiles(prevFiles => 
+      prevFiles.map(file => 
+        file.id === id 
+          ? { ...file, [field]: value } 
+          : file
+      )
+    );
+  };
+  
   const handleUpload = async () => {
     if (files.length === 0) {
       notifications.show({
-        title: 'Предупреждение',
-        message: 'Добавьте файлы для загрузки',
-        color: 'yellow'
+        title: 'Ошибка',
+        message: 'Пожалуйста, выберите хотя бы одно изображение для загрузки',
+        color: 'red'
       });
       return;
     }
     
-    setLoading(true);
-    setError(null);
+    setUploading(true);
+    setProgress(0);
     
-    const uploadedImages: MediaMetadata[] = [];
-    const errors: string[] = [];
-    
-    // Загружаем файлы последовательно, чтобы избежать перегрузки сервера
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      try {
-        const formData = new FormData();
-        formData.append('image', file);
+    try {
+      // Подготавливаем файлы и их метаданные
+      const filesToUpload = files.map(file => {
+        const metadata = useSharedMetadata 
+          ? { ...sharedMetadata } 
+          : {
+              type: file.type || '',
+              section: file.section || '',
+              tags: file.tags || [],
+              title: file.title || '',
+              alt: file.alt || ''
+            };
         
-        // Добавляем метаданные
-        const metadata = {
-          type,
-          section,
-          tags,
-          alt: filesMeta[file.path]?.alt || file.name,
-          title: filesMeta[file.path]?.title || file.name
+        // Создаем реальный объект File с оригинальным типом
+        const fileObject = new File(
+          [file], 
+          file.name, 
+          { type: file.originalType }
+        );
+        
+        return {
+          file: fileObject,
+          metadata
         };
-        
-        formData.append('metadata', JSON.stringify(metadata));
-        
-        // Отправляем запрос
-        const result = await mediaService.uploadImage(formData);
-        uploadedImages.push(result);
-        
-        notifications.show({
-          title: 'Успешно',
-          message: `Файл ${file.name} загружен`,
-          color: 'green'
-        });
-      } catch (err: any) {
-        console.error('Ошибка при загрузке файла:', err);
-        errors.push(`${file.name}: ${err.message}`);
-      }
-    }
-    
-    setLoading(false);
-    
-    // Отображаем результаты
-    if (errors.length > 0) {
-      setError(`Не все файлы были загружены успешно: ${errors.join('; ')}`);
-    }
-    
-    if (uploadedImages.length > 0) {
-      onUploadSuccess(uploadedImages);
-      setFiles([]);
-      setFilesMeta({});
+      });
       
-      if (errors.length === 0) {
-        onClose();
+      // Последовательная загрузка с обновлением прогресса
+      const results = [];
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const { file, metadata } = filesToUpload[i];
+        
+        // Загружаем файл на сервер
+        const uploadedImage = await uploadMultipleImages([file], metadata);
+        results.push(uploadedImage);
+        
+        // Обновляем прогресс
+        const currentProgress = Math.round(((i + 1) / filesToUpload.length) * 100);
+        setProgress(currentProgress);
       }
+      
+      notifications.show({
+        title: 'Успешно',
+        message: `Загружено ${results.length} изображений`,
+        color: 'green',
+        icon: <IconCheck />
+      });
+      
+      // Вызываем коллбэк успешной загрузки
+      if (onUploadSuccess) {
+        onUploadSuccess();
+      }
+      
+      // Закрываем модальное окно и сбрасываем форму
+      resetForm();
+      onClose();
+      
+    } catch (error) {
+      console.error('Ошибка при загрузке изображений:', error);
+      notifications.show({
+        title: 'Ошибка загрузки',
+        message: 'Произошла ошибка при загрузке изображений. Пожалуйста, попробуйте снова.',
+        color: 'red',
+        icon: <IconX />
+      });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -167,9 +212,9 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
       // Приводим File[] к FileWithPath[] и добавляем свойство path
       const filesWithPath = acceptedFiles.map(file => 
         Object.assign(file, { path: URL.createObjectURL(file) })
-      ) as FileWithPath[];
+      ) as FileWithPreview[];
       
-      handleDrop(filesWithPath);
+      handleFileChange(filesWithPath);
     },
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
@@ -183,7 +228,7 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
     const imageUrl = URL.createObjectURL(file);
     
     return (
-      <Box key={file.path} p="sm" style={{ border: '1px solid #eee', borderRadius: '4px' }}>
+      <Box key={file.id} p="sm" style={{ border: '1px solid #eee', borderRadius: '4px' }}>
         <Group justify="space-between" mb="xs">
           <Text size="sm" fw={500} truncate style={{ maxWidth: '180px' }}>
             {file.name}
@@ -193,14 +238,14 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
             color="red" 
             size="compact" 
             p={0} 
-            onClick={() => removeFile(file.path)}
+            onClick={() => removeFile(file.id)}
           >
             <IconX size={18} />
           </Button>
         </Group>
         
         <Image 
-          src={imageUrl}
+          src={file.preview}
           height={120}
           fit="contain"
           mb="xs"
@@ -211,8 +256,8 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
           label="Название"
           placeholder="Введите название"
           size="xs"
-          value={filesMeta[file.path]?.title || ''}
-          onChange={(e) => updateFileMeta(file.path, 'title', e.currentTarget.value)}
+          value={file.title || ''}
+          onChange={(e) => updateFileMetadata(file.id, 'title', e.currentTarget.value)}
           mb="xs"
         />
         
@@ -220,8 +265,8 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
           label="Alt текст"
           placeholder="Текст для SEO"
           size="xs"
-          value={filesMeta[file.path]?.alt || ''}
-          onChange={(e) => updateFileMeta(file.path, 'alt', e.currentTarget.value)}
+          value={file.alt || ''}
+          onChange={(e) => updateFileMetadata(file.id, 'alt', e.currentTarget.value)}
         />
       </Box>
     );
@@ -230,105 +275,184 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
   return (
     <Modal
       opened={opened}
-      onClose={onClose}
+      onClose={handleClose}
       title={title}
       size="xl"
+      padding="lg"
+      centered
     >
-      <Box pos="relative">
-        <LoadingOverlay visible={loading} />
+      <Box>
+        <Group mb="md">
+          <FileInput
+            placeholder="Выберите изображения"
+            label="Изображения"
+            accept="image/*"
+            multiple={multiple}
+            onChange={handleFileChange}
+            leftSection={<IconFileUpload size={16} />}
+            disabled={uploading || files.length >= maxFiles}
+            value={null}
+          />
+          <Text fz="sm" c="dimmed" mt={25}>
+            {files.length} из {maxFiles} изображений
+          </Text>
+        </Group>
         
-        {error && (
-          <Box mb="md">
-            <Text color="red" size="sm">
-              <IconAlertCircle size={16} style={{ marginRight: 5 }} />
-              {error}
+        {files.length > 0 && (
+          <>
+            <Divider my="md" label="Общие метаданные" labelPosition="center" />
+            
+            <Checkbox
+              label="Использовать общие метаданные для всех изображений"
+              checked={useSharedMetadata}
+              onChange={(event) => setUseSharedMetadata(event.currentTarget.checked)}
+              mb="md"
+            />
+            
+            {useSharedMetadata && (
+              <Grid>
+                <Grid.Col span={6}>
+                  <Select
+                    label="Тип изображения"
+                    placeholder="Выберите тип"
+                    data={IMAGE_TYPES}
+                    value={sharedMetadata.type}
+                    onChange={(value) => setSharedMetadata({...sharedMetadata, type: value || ''})}
+                    clearable
+                  />
+                </Grid.Col>
+                <Grid.Col span={6}>
+                  <Select
+                    label="Раздел"
+                    placeholder="Выберите раздел"
+                    data={SECTIONS}
+                    value={sharedMetadata.section}
+                    onChange={(value) => setSharedMetadata({...sharedMetadata, section: value || ''})}
+                    clearable
+                  />
+                </Grid.Col>
+                <Grid.Col span={12}>
+                  <MultiSelect
+                    label="Теги"
+                    placeholder="Добавьте теги"
+                    data={[]}
+                    value={sharedMetadata.tags}
+                    onChange={(value) => setSharedMetadata({...sharedMetadata, tags: value})}
+                    getCreateLabel={(query: string) => `+ Создать "${query}"`}
+                    onCreate={(query: string) => query}
+                    searchable
+                    clearable
+                  />
+                </Grid.Col>
+              </Grid>
+            )}
+            
+            <Divider my="md" label="Предпросмотр" labelPosition="center" />
+            
+            <Grid>
+              {files.map((file) => (
+                <Grid.Col span={4} key={file.id}>
+                  <Card withBorder padding="sm">
+                    <Card.Section>
+                      <Box pos="relative">
+                        <Image
+                          src={file.preview}
+                          alt={file.name}
+                          height={150}
+                          fit="contain"
+                        />
+                        <CloseButton
+                          onClick={() => removeFile(file.id)}
+                          pos="absolute"
+                          right={5}
+                          top={5}
+                          style={{ background: 'rgba(255,255,255,0.8)' }}
+                          disabled={uploading}
+                        />
+                      </Box>
+                    </Card.Section>
+                    
+                    <Text fz="sm" fw={500} mt="xs" lineClamp={1} title={file.name}>
+                      {file.name}
+                    </Text>
+                    
+                    {!useSharedMetadata && (
+                      <Stack mt="xs" gap="xs">
+                        <TextInput
+                          placeholder="Заголовок"
+                          size="xs"
+                          value={file.title || ''}
+                          onChange={(e) => updateFileMetadata(file.id, 'title', e.target.value)}
+                          disabled={uploading}
+                        />
+                        <TextInput
+                          placeholder="Alt текст"
+                          size="xs"
+                          value={file.alt || ''}
+                          onChange={(e) => updateFileMetadata(file.id, 'alt', e.target.value)}
+                          disabled={uploading}
+                        />
+                        <Select
+                          placeholder="Тип"
+                          size="xs"
+                          data={IMAGE_TYPES}
+                          value={file.type || ''}
+                          onChange={(value) => updateFileMetadata(file.id, 'type', value || '')}
+                          disabled={uploading}
+                          clearable
+                        />
+                        <Select
+                          placeholder="Раздел"
+                          size="xs"
+                          data={SECTIONS}
+                          value={file.section || ''}
+                          onChange={(value) => updateFileMetadata(file.id, 'section', value || '')}
+                          disabled={uploading}
+                          clearable
+                        />
+                        <MultiSelect
+                          placeholder="Теги"
+                          size="xs"
+                          data={[]}
+                          value={file.tags || []}
+                          onChange={(value) => updateFileMetadata(file.id, 'tags', value)}
+                          disabled={uploading}
+                          getCreateLabel={(query: string) => `+ Создать "${query}"`}
+                          onCreate={(query: string) => query}
+                          searchable
+                        />
+                      </Stack>
+                    )}
+                  </Card>
+                </Grid.Col>
+              ))}
+            </Grid>
+          </>
+        )}
+        
+        {uploading && (
+          <Box my="md">
+            <Text fz="sm" fw={500} mb="xs">
+              Прогресс загрузки: {progress}%
             </Text>
+            <Progress value={progress} animated />
           </Box>
         )}
         
-        <Stack gap="md">
-          <Text fw={500}>Общие настройки изображений</Text>
-          
-          <Group grow>
-            <Select
-              label="Тип изображений"
-              placeholder="Выберите тип"
-              value={type}
-              onChange={(value) => setType(value || 'content')}
-              data={IMAGE_TYPES}
-              required
-            />
-            
-            <Select
-              label="Раздел сайта"
-              placeholder="Выберите раздел"
-              value={section}
-              onChange={(value) => setSection(value || 'general')}
-              data={SECTIONS}
-              required
-            />
-          </Group>
-          
-          <MultiSelect
-            label="Теги"
-            placeholder="Выберите теги"
-            data={AVAILABLE_TAGS}
-            value={tags}
-            onChange={setTags}
-            searchable
-            clearable
-          />
-          
-          <Box 
-            {...getRootProps()} 
-            style={{
-              border: '2px dashed var(--mantine-color-blue-6)',
-              borderRadius: '8px',
-              padding: '20px',
-              textAlign: 'center',
-              cursor: 'pointer',
-              backgroundColor: isDragActive ? 'var(--mantine-color-blue-0)' : 'transparent',
-            }}
+        <Group justify="flex-end" mt="xl">
+          <Button variant="default" onClick={handleClose} disabled={uploading}>
+            Отмена
+          </Button>
+          <Button 
+            onClick={handleUpload} 
+            disabled={files.length === 0 || uploading}
+            loading={uploading}
+            leftSection={<IconUpload size={16} />}
+            color="blue"
           >
-            <input {...getInputProps()} />
-            
-            <Group justify="center" gap="xl" style={{ minHeight: 120, pointerEvents: 'none' }}>
-              {isDragActive ? (
-                <IconUpload size={50} stroke={1.5} />
-              ) : (
-                <IconPhoto size={50} stroke={1.5} />
-              )}
-
-              <div>
-                <Text size="xl" inline>
-                  Перетащите изображения сюда
-                </Text>
-                <Text size="sm" color="dimmed" inline mt={7}>
-                  Перетащите изображения сюда или нажмите для выбора файлов
-                </Text>
-              </div>
-            </Group>
-          </Box>
-          
-          {files.length > 0 && (
-            <>
-              <Text fw={500}>Выбранные файлы ({files.length})</Text>
-              
-              <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }}>
-                {previews}
-              </SimpleGrid>
-            </>
-          )}
-          
-          <Group justify="right" mt="md">
-            <Button variant="outline" onClick={onClose}>
-              Отмена
-            </Button>
-            <Button onClick={handleUpload} disabled={files.length === 0}>
-              Загрузить {files.length > 0 && `(${files.length})`}
-            </Button>
-          </Group>
-        </Stack>
+            Загрузить
+          </Button>
+        </Group>
       </Box>
     </Modal>
   );

@@ -13,10 +13,13 @@ RUN npm install
 COPY server/ .
 COPY docker/server/startup.sh ./startup.sh
 
-# Create logs directory and set permissions
+# Create logs directory and upload directories
 RUN mkdir -p logs && \
+    mkdir -p public/uploads && \
+    mkdir -p public/uploads/thumbnails && \
     chown -R node:node . && \
-    chmod +x ./startup.sh
+    chmod +x ./startup.sh && \
+    chmod -R 755 public/uploads
 
 # Build TypeScript code (включая все скрипты)
 RUN npm run build
