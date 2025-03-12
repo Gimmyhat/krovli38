@@ -37,14 +37,103 @@ RUN rm -rf /usr/share/nginx/html/*
 COPY --from=build /app/dist /usr/share/nginx/html/admin
 COPY --from=build /app/public/admin /usr/share/nginx/html/admin/
 
-# Создаем файл с полифиллом напрямую - максимально простая реализация
-RUN echo '(function(){try{window.crypto=window.crypto||{};window.crypto.randomUUID=window.crypto.randomUUID||function(){return Date.now().toString(36)+Math.random().toString(36).substring(2,15)};console.log("Simple polyfill активирован");}catch(e){console.error("Ошибка:",e);}})();' > /usr/share/nginx/html/admin/crypto-simple.js
+# Создаем глобальный полифилл для crypto.randomUUID
+RUN mkdir -p /usr/share/nginx/html/admin/polyfills/
+RUN echo "window.cryptoPolyfill = { \
+  install: function() { \
+    if (typeof window.crypto === 'undefined') { \
+      window.crypto = {}; \
+    } \
+    if (typeof window.crypto.randomUUID !== 'function') { \
+      window.crypto.randomUUID = function() { \
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { \
+          var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8); \
+          return v.toString(16); \
+        }); \
+      }; \
+      console.log('Глобальный полифилл crypto.randomUUID установлен'); \
+    } \
+    try { \
+      var testUUID = window.crypto.randomUUID(); \
+      console.log('Тест crypto.randomUUID: ' + testUUID); \
+      return true; \
+    } catch(e) { \
+      console.error('Ошибка в полифилле: ' + e); \
+      return false; \
+    } \
+  } \
+}; \
+window.cryptoPolyfill.install(); \
+setInterval(function() { \
+  if (typeof window.crypto === 'undefined' || typeof window.crypto.randomUUID !== 'function') { \
+    console.warn('crypto.randomUUID был перезаписан, восстанавливаем'); \
+    window.cryptoPolyfill.install(); \
+  } \
+}, 500); \
+window.addEventListener('DOMContentLoaded', window.cryptoPolyfill.install); \
+window.addEventListener('load', window.cryptoPolyfill.install);" > /usr/share/nginx/html/admin/polyfills/crypto-polyfill.js
 
-# Вставляем прямой полифилл в head
-RUN sed -i 's/<head>/<head><script>window.crypto=window.crypto||{};window.crypto.randomUUID=window.crypto.randomUUID||function(){return Date.now().toString(36)+Math.random().toString(36).substring(2,15)};<\/script><script src="\/admin\/crypto-simple.js"><\/script>/' /usr/share/nginx/html/admin/index.html
+# Добавляем глобальный обработчик ошибок связанных с crypto.randomUUID
+RUN echo "window.onerror = function(message, source, lineno, colno, error) { \
+  if (message && message.toString().includes('crypto.randomUUID')) { \
+    console.warn('Перехвачена ошибка: ' + message); \
+    if (window.cryptoPolyfill) { \
+      window.cryptoPolyfill.install(); \
+    } else { \
+      window.crypto = window.crypto || {}; \
+      window.crypto.randomUUID = function() { \
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { \
+          var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8); \
+          return v.toString(16); \
+        }); \
+      }; \
+    } \
+    return true; \
+  } \
+  return false; \
+};" > /usr/share/nginx/html/admin/polyfills/error-handler.js
 
-# Вставляем дополнительную проверку в body
-RUN sed -i 's/<body>/<body><script>try{var test=window.crypto.randomUUID();console.log("UUID test:",test);}catch(e){console.error("UUID test failed:",e);window.crypto=window.crypto||{};window.crypto.randomUUID=function(){return Date.now().toString(36)+Math.random().toString(36).substring(2,15)}}<\/script>/' /usr/share/nginx/html/admin/index.html
+# Создаем инлайн-полифилл для вставки в head
+RUN echo "window.crypto=window.crypto||{}; \
+window.crypto.randomUUID=window.crypto.randomUUID||function() { \
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { \
+    var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8); \
+    return v.toString(16); \
+  }); \
+};" > /usr/share/nginx/html/admin/polyfills/inline-polyfill.js
+
+# Вставляем полифиллы в HTML
+RUN sed -i '/<head>/a \
+    <script>\
+    window.crypto=window.crypto||{};\
+    window.crypto.randomUUID=window.crypto.randomUUID||function() {\
+      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {\
+        var r = Math.random() * 16 | 0, v = c === "x" ? r : (r & 0x3 | 0x8);\
+        return v.toString(16);\
+      });\
+    };\
+    <\/script>\
+    <script src="/admin/polyfills/crypto-polyfill.js"><\/script>' /usr/share/nginx/html/admin/index.html
+
+# Вставляем проверку в body
+RUN sed -i '/<body>/a \
+    <script>\
+    if (!window.crypto || typeof window.crypto.randomUUID !== "function") {\
+      console.warn("crypto.randomUUID не обнаружен в body, применяем экстренный полифилл");\
+      window.crypto = window.crypto || {};\
+      window.crypto.randomUUID = function() {\
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {\
+          var r = Math.random() * 16 | 0, v = c === "x" ? r : (r & 0x3 | 0x8);\
+          return v.toString(16);\
+        });\
+      };\
+    }\
+    <\/script>' /usr/share/nginx/html/admin/index.html
+
+# Вставляем обработчик ошибок
+RUN sed -i '$i\
+<script src="/admin/polyfills/error-handler.js"><\/script>\
+</body>' /usr/share/nginx/html/admin/index.html
 
 # Copy nginx configuration
 COPY docker/admin/nginx.conf /etc/nginx/conf.d/default.conf
