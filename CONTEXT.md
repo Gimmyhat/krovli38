@@ -31,6 +31,17 @@
 - Утилиты → /admin-panel/src/utils/
 - Типы → /admin-panel/src/types/
 
+## Деплой и CI/CD
+- GitHub Actions → /.github/workflows/docker-build.yml
+- Docker конфигурация → /docker/
+- Nginx конфигурация → /docker/nginx/conf.d/
+
+## Особенности реализации
+- Маршрутизация в админ-панели использует basename="/admin" в BrowserRouter
+- Интеграция с Cloudinary для управления изображениями
+- Полифилл для crypto.randomUUID → /admin-panel/public/polyfill.js
+- Переменные окружения передаются через Docker и GitHub Actions
+
 <!-- @cursor:dependencies -->
 ## Dependencies
 - react: ^18.2.0
@@ -52,6 +63,13 @@
 - tailwindcss: ^3.3.3
 - typescript: ^5.2.2
 - vite: ^4.5.0
+- cloudinary: ^1.41.3
+- mongodb: ^6.3.0
+- express: ^4.18.2
+- mongoose: ^8.1.3
+- jsonwebtoken: ^9.0.2
+- multer: ^1.4.5-lts.1
+- sharp: ^0.33.2
 
 <!-- @cursor:conventions -->
 ## Standards
@@ -63,4 +81,14 @@
 6. API запросы: Axios
 7. Маршрутизация: React Router
 8. Сборка: Vite
-9. Контейнеризация: Docker 
+9. Контейнеризация: Docker
+10. Управление изображениями: Cloudinary
+11. Обработка ошибок: Централизованная с логированием
+12. Переменные окружения: Передаются через Docker и GitHub Actions
+
+## Последние улучшения
+1. Исправлено дублирование префикса /admin в URL
+2. Улучшена обработка ошибок в API
+3. Добавлен улучшенный полифилл для crypto.randomUUID
+4. Синхронизированы переменные окружения между локальной и продакшн средой
+5. Улучшена конфигурация Nginx для работы с Cloudinary 
