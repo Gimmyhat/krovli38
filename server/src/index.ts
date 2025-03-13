@@ -98,8 +98,29 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 // Обеспечиваем наличие Upload Preset для Cloudinary
 const setupCloudinary = async () => {
   try {
-    const preset = await cloudinaryConfig.ensureUploadPreset();
-    console.log('Cloudinary Upload Preset настроен успешно:', preset.name);
+    console.log('Инициализация Cloudinary...');
+    
+    // Проверяем настройки Cloudinary
+    console.log('Настройки Cloudinary:', {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET ? 'Установлен' : 'Не установлен',
+      upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET
+    });
+    
+    // Проверяем подключение к Cloudinary
+    try {
+      console.log('Проверка подключения к Cloudinary...');
+      const pingResult = await cloudinaryConfig.v2.api.ping();
+      console.log('Подключение к Cloudinary успешно:', pingResult);
+      
+      // Проверяем и создаем Upload Preset
+      const preset = await cloudinaryConfig.ensureUploadPreset();
+      console.log('Cloudinary Upload Preset настроен успешно:', preset.name);
+    } catch (cloudinaryError) {
+      console.error('Ошибка при подключении к Cloudinary:', cloudinaryError);
+      logger.error('Ошибка подключения к Cloudinary:', { error: cloudinaryError });
+    }
   } catch (error) {
     console.error('Ошибка при настройке Cloudinary Upload Preset:', error);
     logger.error('Cloudinary Upload Preset ошибка:', { error });
