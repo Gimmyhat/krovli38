@@ -2,6 +2,12 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Аргументы сборки
+ARG NODE_ENV=production
+ARG CLOUDINARY_CLOUD_NAME
+ARG CLOUDINARY_API_KEY
+ARG CLOUDINARY_API_SECRET
+
 # Install dependencies
 COPY server/package*.json ./
 
@@ -22,8 +28,19 @@ RUN mkdir -p logs && \
 RUN npm run build
 
 # Switch to production environment
-ENV NODE_ENV=production
+ENV NODE_ENV=${NODE_ENV}
 ENV PORT=3000
+
+# Cloudinary environment variables
+ENV CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-dr0hjlr79}
+ENV CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-586934817968136}
+ENV CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-YqBkV_O8W2RwDIpOTuEea3ghoFA}
+
+# Debug environment variables
+RUN echo "Building with environment variables:" && \
+    echo "NODE_ENV: $NODE_ENV" && \
+    echo "CLOUDINARY_CLOUD_NAME: $CLOUDINARY_CLOUD_NAME" && \
+    echo "CLOUDINARY_API_KEY: $CLOUDINARY_API_KEY"
 
 # Switch to non-root user
 USER node

@@ -33,6 +33,9 @@ services:
       - MONGODB_URI=mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin_password}@mongodb:27017/${MONGO_DB:-krovli38}?authSource=admin
       - NODE_ENV=${NODE_ENV:-production}
       - JWT_SECRET=${JWT_SECRET:-your_super_secret_key_for_jwt_tokens_krovli38}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-dr0hjlr79}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-586934817968136}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-YqBkV_O8W2RwDIpOTuEea3ghoFA}
     networks:
       - app-network
     depends_on:
