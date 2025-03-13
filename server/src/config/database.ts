@@ -7,7 +7,8 @@ export const connectDB = async (): Promise<void> => {
     logger.info('Подключение к MongoDB...');
     
     // Используем URI из переменных окружения или константы
-    const mongoUri = process.env.MONGO_URI || DATABASE.URI;
+    // Проверяем обе переменные MONGO_URI и MONGODB_URI для совместимости
+    const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI || DATABASE.URI;
     
     console.log('Connecting to MongoDB with URI:', mongoUri);
     
