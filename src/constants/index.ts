@@ -41,8 +41,15 @@ export const SITE_METADATA = {
   NAME: 'Кровли38',
   DESCRIPTION: 'Профессиональный ремонт плоской кровли в Иркутске',
   PHONE: '+7 (3952) 95-05-53',
-  EMAIL: 'info@remont-krovli.ru',
+  EMAIL: 'krovlya38.pro@mail.ru',
   WORK_HOURS: 'Пн-Пт: 8:00 - 20:00',
+};
+
+// Контактная информация
+export const CONTACT_INFO = {
+  phone: '+7 (3952) 95-05-53',
+  email: 'krovlya38.pro@mail.ru',
+  workHours: 'Пн-Пт: 8:00 - 20:00'
 };
 
 // Константы для разметки
