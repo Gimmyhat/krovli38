@@ -12,8 +12,10 @@ import imageRoutes from './routes/imageRoutes';
 import settingsRoutes from './routes/settings';
 // @ts-ignore - временная заглушка для маршрутов галереи
 import galleryRoutes from './routes/galleryRoutes';
+// Маршруты для работы с контентом
+import contentRoutes from './routes/contentRoutes';
 import { initializeAdmin } from './scripts/init';
-import * as cloudinaryConfig from './config/cloudinary';
+import cloudinaryConfig from './config/cloudinary';
 import { SERVER, DATABASE } from './constants';
 import { ensureAllSettings, ensureSetting } from './utils/ensureSettings';
 
@@ -62,6 +64,7 @@ app.use('/api/logs', logsRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/gallery', galleryRoutes);
+app.use('/api/content', contentRoutes);
 
 // Базовый маршрут API
 app.get('/api', (req, res) => {
@@ -73,7 +76,8 @@ app.get('/api', (req, res) => {
       '/api/logs',
       '/api/images',
       '/api/settings',
-      '/api/gallery'
+      '/api/gallery',
+      '/api/content'
     ]
   });
 });

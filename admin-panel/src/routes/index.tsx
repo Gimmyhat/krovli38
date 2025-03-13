@@ -7,6 +7,7 @@ import Logs from '../pages/Logs';
 import Images from '../pages/Images';
 import Gallery from '../pages/Gallery';
 import Settings from '../pages/Settings';
+import ContentEditor from '../pages/ContentEditor';
 import Layout from '../components/Layout';
 import { ReactNode } from 'react';
 
@@ -54,6 +55,7 @@ const AppRoutes = () => {
         <Route path="images" element={<Images />} />
         <Route path="gallery" element={<Gallery />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="content" element={<ContentEditor />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

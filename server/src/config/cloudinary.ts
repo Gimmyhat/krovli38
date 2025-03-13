@@ -15,6 +15,14 @@ cloudinary.config({
   secure: true
 });
 
+// Логируем настройки Cloudinary для отладки
+console.log('Cloudinary config loaded:', {
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET ? 'Установлен' : 'Не установлен',
+  upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET
+});
+
 interface UploadOptions {
   folder?: string;
   tags?: string[];
