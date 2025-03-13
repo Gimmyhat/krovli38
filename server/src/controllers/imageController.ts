@@ -343,6 +343,13 @@ export const createFromCloudinary = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Не указан public_id изображения' });
     }
 
+    // Проверяем настройки Cloudinary
+    console.log('Cloudinary config:', {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET ? 'Установлен' : 'Не установлен'
+    });
+
     // Проверяем, существует ли уже изображение с таким public_id
     const existingImage = await Image.findOne({ public_id });
     if (existingImage) {
@@ -353,32 +360,40 @@ export const createFromCloudinary = async (req: Request, res: Response) => {
     }
 
     // Получаем информацию о ресурсе из Cloudinary
-    const result = await cloudinaryConfig.v2.api.resource(public_id);
+    try {
+      const result = await cloudinaryConfig.v2.api.resource(public_id);
+      
+      // Создаем запись в MongoDB
+      const newImage = new Image({
+        public_id,
+        url: result.url,
+        secure_url: result.secure_url,
+        type: type || 'content',
+        alt: alt || '',
+        title: title || '',
+        section: section || 'general',
+        width: result.width,
+        height: result.height,
+        format: result.format,
+        size: result.bytes,
+        tags: tags || [],
+      });
 
-    // Создаем запись в MongoDB
-    const newImage = new Image({
-      public_id,
-      url: result.url,
-      secure_url: result.secure_url,
-      type: type || 'content',
-      alt: alt || '',
-      title: title || '',
-      section: section || 'general',
-      width: result.width,
-      height: result.height,
-      format: result.format,
-      size: result.bytes,
-      tags: tags || [],
-    });
+      // Сохраняем в БД
+      await newImage.save();
 
-    // Сохраняем в БД
-    await newImage.save();
-
-    // Возвращаем результат
-    res.status(201).json({
-      message: 'Изображение успешно добавлено',
-      image: newImage
-    });
+      // Возвращаем результат
+      res.status(201).json({
+        message: 'Изображение успешно добавлено',
+        image: newImage
+      });
+    } catch (cloudinaryError: any) {
+      console.error('Ошибка при получении данных из Cloudinary:', cloudinaryError);
+      return res.status(500).json({
+        error: 'Ошибка при получении данных из Cloudinary',
+        details: cloudinaryError.message
+      });
+    }
   } catch (error: any) {
     console.error('Ошибка при создании изображения из Cloudinary:', error);
     res.status(500).json({

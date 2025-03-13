@@ -14,6 +14,9 @@ env:
   VITE_CLOUDINARY_CLOUD_NAME: dr0hjlr79
   VITE_CLOUDINARY_API_KEY: 586934817968136
   VITE_CLOUDINARY_UPLOAD_PRESET: krovli38_preset
+  CLOUDINARY_CLOUD_NAME: dr0hjlr79
+  CLOUDINARY_API_KEY: 586934817968136
+  CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
 
 jobs:
   build-and-push:
@@ -62,6 +65,11 @@ jobs:
           file: docker/server/Dockerfile
           push: true
           tags: ${{ env.SERVER_IMAGE }}:latest
+          build-args: |
+            NODE_ENV=production
+            CLOUDINARY_CLOUD_NAME=${{ env.CLOUDINARY_CLOUD_NAME }}
+            CLOUDINARY_API_KEY=${{ env.CLOUDINARY_API_KEY }}
+            CLOUDINARY_API_SECRET=${{ env.CLOUDINARY_API_SECRET }}
           cache-from: type=registry,ref=${{ env.SERVER_IMAGE }}:buildcache
           cache-to: type=registry,ref=${{ env.SERVER_IMAGE }}:buildcache,mode=max
 
@@ -108,6 +116,9 @@ jobs:
             echo "VITE_CLOUDINARY_CLOUD_NAME=${{ env.VITE_CLOUDINARY_CLOUD_NAME }}" >> .env
             echo "VITE_CLOUDINARY_API_KEY=${{ env.VITE_CLOUDINARY_API_KEY }}" >> .env
             echo "VITE_CLOUDINARY_UPLOAD_PRESET=${{ env.VITE_CLOUDINARY_UPLOAD_PRESET }}" >> .env
+            echo "CLOUDINARY_CLOUD_NAME=${{ env.CLOUDINARY_CLOUD_NAME }}" >> .env
+            echo "CLOUDINARY_API_KEY=${{ env.CLOUDINARY_API_KEY }}" >> .env
+            echo "CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }}" >> .env
             
             # Подтягиваем новые образы
             echo "Pulling new images..."
