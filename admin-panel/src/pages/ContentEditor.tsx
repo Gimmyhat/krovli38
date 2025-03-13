@@ -49,12 +49,26 @@ const ContentEditor: React.FC = () => {
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Неизвестная ошибка';
-      notifications.show({
-        title: 'Ошибка',
-        message: `Не удалось обновить услугу: ${errorMessage}`,
-        color: 'red',
-        icon: <IconAlertCircle size="1.1rem" />
-      });
+      
+      // Проверяем, связана ли ошибка с авторизацией
+      if (errorMessage.includes('авторизации') || errorMessage.includes('токен')) {
+        notifications.show({
+          title: 'Ошибка авторизации',
+          message: 'Пожалуйста, войдите в систему снова',
+          color: 'red',
+          icon: <IconAlertCircle size="1.1rem" />
+        });
+        
+        // Можно добавить редирект на страницу логина
+        // window.location.href = '/admin/login';
+      } else {
+        notifications.show({
+          title: 'Ошибка',
+          message: `Не удалось обновить услугу: ${errorMessage}`,
+          color: 'red',
+          icon: <IconAlertCircle size="1.1rem" />
+        });
+      }
     }
   };
 

@@ -18,10 +18,17 @@ export const fetchSiteContent = async (): Promise<SiteContent> => {
 // Обновление услуги
 export const updateService = async (serviceId: string, serviceData: Partial<Service>): Promise<Service> => {
   try {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('Не найден токен авторизации');
+    }
+    
     const response = await fetch(`${API.BASE_URL}/content/services/${serviceId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(serviceData),
     });
@@ -40,10 +47,17 @@ export const updateService = async (serviceId: string, serviceData: Partial<Serv
 // Обновление секции контента
 export const updateContentSection = async (sectionName: string, sectionData: any): Promise<any> => {
   try {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('Не найден токен авторизации');
+    }
+    
     const response = await fetch(`${API.BASE_URL}/content/${sectionName}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(sectionData),
     });
