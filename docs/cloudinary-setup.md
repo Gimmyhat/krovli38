@@ -2,64 +2,58 @@
 
 ## Проблема
 
-При попытке загрузить изображения в галерею на локальной машине возникает ошибка 500 (Internal Server Error):
-
-```
-POST http://localhost/api/images/cloudinary 500 (Internal Server Error)
-```
-
-Это происходит из-за того, что в локальной среде используются тестовые учетные данные Cloudinary, которые не работают для создания изображений.
+При попытке загрузить изображения локально вы можете столкнуться с ошибкой 500 Internal Server Error. Это происходит потому что для работы с изображениями проект использует Cloudinary, и необходимо настроить правильные учетные данные.
 
 ## Решение
 
-1. Создайте аккаунт на [Cloudinary](https://cloudinary.com/) (если у вас его еще нет)
-2. Получите ваши учетные данные Cloudinary:
-   - Cloud Name
-   - API Key
-   - API Secret
+В проекте уже настроены учетные данные Cloudinary для продакшн-среды. Для локальной разработки вам нужно использовать те же учетные данные:
 
-3. Обновите файл `server/.env` с вашими учетными данными:
+1. Обновите файл `server/.env` со следующими настройками Cloudinary:
 
 ```
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_CLOUD_NAME=dr0hjlr79
+CLOUDINARY_API_KEY=586934817968136
 CLOUDINARY_API_SECRET=your_api_secret
 CLOUDINARY_UPLOAD_PRESET=krovli38_preset
 ```
 
-4. Обновите файл `docker/.env.local` с теми же учетными данными:
+2. Обновите файл `docker/.env.local` со следующими настройками Cloudinary:
 
 ```
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_CLOUD_NAME=dr0hjlr79
+CLOUDINARY_API_KEY=586934817968136
 CLOUDINARY_API_SECRET=your_api_secret
+VITE_CLOUDINARY_CLOUD_NAME=dr0hjlr79
+VITE_CLOUDINARY_API_KEY=586934817968136
+VITE_CLOUDINARY_UPLOAD_PRESET=krovli38_preset
 ```
 
-5. Перезапустите сервер:
+> **Примечание**: Вам нужно получить значение `CLOUDINARY_API_SECRET` от администратора проекта, так как оно не включено в репозиторий по соображениям безопасности.
+
+## Перезапуск сервера
+
+После обновления файлов конфигурации, перезапустите сервер:
+
+### Для Docker:
 
 ```bash
-# Если вы используете Docker
 docker-compose -f docker/docker-compose.local.yml down
 docker-compose -f docker/docker-compose.local.yml up -d
+```
 
-# Если вы запускаете сервер напрямую
+### Для прямого запуска сервера:
+
+```bash
 cd server
 npm run dev
 ```
 
-## Проверка настройки
+## Проверка
 
-После настройки учетных данных Cloudinary, вы можете проверить, что все работает правильно:
-
-1. Откройте админ-панель
-2. Перейдите в раздел "Галерея" или "Изображения"
-3. Попробуйте загрузить новое изображение
-
-Если все настроено правильно, изображение должно успешно загрузиться и появиться в галерее.
+После перезапуска сервера, попробуйте загрузить изображение через админ-панель. Если всё настроено правильно, изображение должно успешно загрузиться.
 
 ## Дополнительная информация
 
-- Cloudinary используется для хранения и управления изображениями в проекте
-- Все изображения физически хранятся в Cloudinary, а в базе данных хранятся только ссылки на них
-- Для работы с Cloudinary в проекте используется официальная библиотека `cloudinary`
-- Конфигурация Cloudinary находится в файле `server/src/config/cloudinary.ts` 
+Cloudinary используется в проекте для хранения и обработки изображений. Изображения загружаются на серверы Cloudinary, а в базе данных хранятся только ссылки на эти изображения.
+
+Конфигурация Cloudinary находится в файле `server/src/config/cloudinary.js`, который использует библиотеку `cloudinary` для взаимодействия с API Cloudinary. 
