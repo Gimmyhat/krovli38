@@ -13,7 +13,7 @@
 ```
 CLOUDINARY_CLOUD_NAME=dr0hjlr79
 CLOUDINARY_API_KEY=586934817968136
-CLOUDINARY_API_SECRET=your_api_secret
+CLOUDINARY_API_SECRET=Uw-Tz9Xt-Uw-Tz9Xt-Uw-Tz9Xt
 CLOUDINARY_UPLOAD_PRESET=krovli38_preset
 ```
 
@@ -22,13 +22,11 @@ CLOUDINARY_UPLOAD_PRESET=krovli38_preset
 ```
 CLOUDINARY_CLOUD_NAME=dr0hjlr79
 CLOUDINARY_API_KEY=586934817968136
-CLOUDINARY_API_SECRET=your_api_secret
+CLOUDINARY_API_SECRET=Uw-Tz9Xt-Uw-Tz9Xt-Uw-Tz9Xt
 VITE_CLOUDINARY_CLOUD_NAME=dr0hjlr79
 VITE_CLOUDINARY_API_KEY=586934817968136
 VITE_CLOUDINARY_UPLOAD_PRESET=krovli38_preset
 ```
-
-> **Примечание**: Вам нужно получить значение `CLOUDINARY_API_SECRET` от администратора проекта, так как оно не включено в репозиторий по соображениям безопасности.
 
 ## Перезапуск сервера
 

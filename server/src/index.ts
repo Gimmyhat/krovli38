@@ -15,7 +15,7 @@ import galleryRoutes from './routes/galleryRoutes';
 // Маршруты для работы с контентом
 import contentRoutes from './routes/contentRoutes';
 import { initializeAdmin } from './scripts/init';
-import * as cloudinaryConfig from './config/cloudinary';
+import cloudinaryConfig from './config/cloudinary';
 import { SERVER, DATABASE } from './constants';
 import { ensureAllSettings, ensureSetting } from './utils/ensureSettings';
 
