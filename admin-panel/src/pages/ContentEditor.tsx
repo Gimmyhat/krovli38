@@ -12,18 +12,22 @@ import {
   Alert, 
   Container,
   Image,
-  SimpleGrid
+  SimpleGrid,
+  ActionIcon
 } from '@mantine/core';
-import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
+import { IconAlertCircle, IconCheck, IconPhoto } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { Service } from '../types/content';
 import { useContentSync } from '../hooks/useContentSync';
 import { useLogger } from '../hooks/useLogger';
+import CloudinaryPicker from '../components/Images/CloudinaryPicker';
+import { ImageData } from '../api/imageApi';
 
 const ContentEditor: React.FC = () => {
   const { content, loading, error, loadContent, updateServiceItem } = useContentSync();
   const [activeTab, setActiveTab] = useState<string | null>('services');
   const [editingService, setEditingService] = useState<Service | null>(null);
+  const [imagePickerOpened, setImagePickerOpened] = useState(false);
   const logger = useLogger();
 
   const handleServiceEdit = (service: Service) => {
@@ -61,6 +65,13 @@ const ContentEditor: React.FC = () => {
   const handleServiceChange = (field: keyof Service, value: string) => {
     if (editingService) {
       setEditingService({ ...editingService, [field]: value });
+    }
+  };
+
+  const handleImageSelect = (image: ImageData) => {
+    if (editingService) {
+      setEditingService({ ...editingService, image: image.secure_url });
+      setImagePickerOpened(false);
     }
   };
 
@@ -116,13 +127,32 @@ const ContentEditor: React.FC = () => {
                 minRows={3}
               />
               
-              <TextInput
-                label="Путь к изображению"
-                value={editingService.image}
-                onChange={(e) => handleServiceChange('image', e.target.value)}
-                mb="md"
-                placeholder="/images/services/service-1.jpg"
-              />
+              <Group align="flex-end" mb="md">
+                <TextInput
+                  label="Путь к изображению"
+                  value={editingService.image}
+                  onChange={(e) => handleServiceChange('image', e.target.value)}
+                  style={{ flex: 1 }}
+                  placeholder="/images/services/service-1.jpg"
+                  rightSection={
+                    <ActionIcon onClick={() => setImagePickerOpened(true)}>
+                      <IconPhoto size="1.1rem" />
+                    </ActionIcon>
+                  }
+                />
+              </Group>
+
+              {editingService.image && (
+                <Card withBorder mb="md">
+                  <Card.Section>
+                    <Image
+                      src={editingService.image}
+                      height={200}
+                      alt={editingService.title}
+                    />
+                  </Card.Section>
+                </Card>
+              )}
               
               <TextInput
                 label="Иконка"
@@ -182,6 +212,15 @@ const ContentEditor: React.FC = () => {
           <Text>Функционал редактирования главного экрана в разработке</Text>
         </Tabs.Panel>
       </Tabs>
+
+      {/* Модальное окно выбора изображения */}
+      <CloudinaryPicker
+        opened={imagePickerOpened}
+        onClose={() => setImagePickerOpened(false)}
+        onSelect={handleImageSelect}
+        title="Выберите изображение для услуги"
+        filter={{ section: 'services' }}
+      />
     </Container>
   );
 };
