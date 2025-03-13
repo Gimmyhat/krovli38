@@ -53,6 +53,7 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
   
   const widgetRef = useRef<CloudinaryUploadWidget | null>(null);
   const uploadedFiles = useRef<CloudinaryUploadWidgetResult[]>([]);
+  const widgetCallbackRef = useRef<((error: Error | null, result: CloudinaryUploadWidgetResult) => void) | null>(null);
 
   // Обработчик результатов загрузки
   const handleUploadResults = async (
@@ -79,6 +80,9 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
     }
     
     if (result.event === 'close') {
+      // Очищаем callback перед закрытием виджета
+      widgetCallbackRef.current = null;
+      
       // Если были загруженные файлы, сохраняем их в БД
       if (uploadedFiles.current.length > 0) {
         try {
@@ -101,93 +105,88 @@ const CloudinaryUploadWidgetComponent: React.FC<CloudinaryUploadWidgetComponentP
             }
           }
           
-          // Очищаем временные данные
-          uploadedFiles.current = [];
-          
-          // Уведомляем и закрываем модальное окно
+          // Уведомляем пользователя
           notifications.show({
             title: 'Успешно',
-            message: 'Все изображения успешно загружены',
+            message: `Загружено ${uploadedFiles.current.length} изображений`,
             color: 'green',
             icon: <IconCheck size={16} />
           });
           
-          // Вызываем функцию обратного вызова для обновления списка изображений
+          // Вызываем callback успешной загрузки
           onUploadSuccess();
+          
+          // Закрываем модальное окно
           onClose();
-        } catch (error) {
-          console.error('Ошибка при сохранении изображений:', error);
-          setError('Не удалось сохранить метаданные изображений в БД');
+        } catch (err) {
+          console.error('Ошибка при сохранении метаданных:', err);
+          setError('Произошла ошибка при сохранении метаданных изображений');
         } finally {
           setLoading(false);
         }
       } else {
-        // Закрываем просто так, если ничего не загрузили
+        // Просто закрываем модальное окно, если не было загрузок
         onClose();
       }
     }
   };
 
-  // Инициализация виджета
+  // Инициализация виджета при открытии модального окна
   useEffect(() => {
-    if (opened) {
+    if (opened && !widgetRef.current) {
       try {
-        // Проверяем доступность Cloudinary
-        if (!(window as any).cloudinary) {
-          console.error('Cloudinary не доступен. Проверьте, загружены ли скрипты Cloudinary.');
-          setError('Cloudinary не доступен. Проверьте консоль браузера для деталей.');
-          return;
-        }
-
-        console.log('Cloudinary настройки:', {
-          cloudName: cloudinaryConfig.CLOUDINARY_CLOUD_NAME,
-          apiKey: cloudinaryConfig.CLOUDINARY_API_KEY,
-          uploadPreset: cloudinaryConfig.CLOUDINARY_UPLOAD_PRESET
-        });
-
-        // Получаем базовую конфигурацию
+        // Создаем новый callback и сохраняем его в ref
+        widgetCallbackRef.current = handleUploadResults;
+        
+        // Создаем функцию-обертку, которая проверяет актуальность callback
+        const safeCallback = (error: Error | null, result: CloudinaryUploadWidgetResult) => {
+          if (widgetCallbackRef.current) {
+            widgetCallbackRef.current(error, result);
+          }
+        };
+        
+        // Получаем конфигурацию для виджета
         const options = cloudinaryConfig.getUploadWidgetConfig({
           multiple,
           maxFiles,
-          // Добавляем информацию для организации файлов
-          folder: `krovli38/${type || 'content'}`,
-          // Если теги указаны, добавляем их
-          tags: tags.length > 0 ? tags : undefined
+          tags
         });
         
-        console.log('Опции для Cloudinary Upload Widget:', options);
-        
-        // Создаем виджет с типизацией
-        widgetRef.current = (window as any).cloudinary.createUploadWidget(
-          options,
-          handleUploadResults
-        );
-        
-        // Сразу открываем виджет
-        if (widgetRef.current) {
-          widgetRef.current.open();
+        // Создаем виджет
+        if (typeof window !== 'undefined' && (window as any).cloudinary) {
+          widgetRef.current = (window as any).cloudinary.createUploadWidget(
+            options,
+            safeCallback
+          );
+          
+          // Открываем виджет
+          if (widgetRef.current) {
+            widgetRef.current.open();
+          }
         } else {
-          console.error('Не удалось создать виджет Cloudinary');
-          setError('Не удалось создать виджет загрузки. Проверьте консоль браузера.');
+          setError('Cloudinary не инициализирован. Пожалуйста, обновите страницу.');
         }
-      } catch (error) {
-        console.error('Ошибка при инициализации Cloudinary Upload Widget:', error);
-        setError('Не удалось инициализировать Cloudinary Upload Widget');
+      } catch (err) {
+        console.error('Ошибка при инициализации Cloudinary Upload Widget:', err);
+        setError('Не удалось инициализировать виджет загрузки');
       }
     }
     
-    // Очищаем при размонтировании
+    // Очистка при закрытии модального окна
     return () => {
       if (widgetRef.current) {
         try {
           widgetRef.current.close({ quiet: true });
-          widgetRef.current.destroy();
-        } catch (e) {
-          console.error('Ошибка при закрытии Cloudinary Upload Widget:', e);
+          widgetRef.current = null;
+        } catch (err) {
+          console.error('Ошибка при закрытии виджета:', err);
         }
       }
+      
+      // Очищаем callback при размонтировании
+      widgetCallbackRef.current = null;
     };
-  }, [opened]);
+  }, [opened, multiple, maxFiles, tags]);
 
   return (
     <Modal

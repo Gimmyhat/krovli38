@@ -23,7 +23,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
   
   if (!isAuthenticated) {
-    return <Navigate to="/admin/login" replace />;
+    return <Navigate to="/login" replace />;
   }
   
   return <>{children}</>;
@@ -38,16 +38,16 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      <Route path="/admin/login" element={
-        isAuthenticated ? <Navigate to="/admin/dashboard" replace /> : <Login />
+      <Route path="/login" element={
+        isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
       } />
       
-      <Route path="/admin" element={
+      <Route path="/" element={
         <ProtectedRoute>
           <Layout />
         </ProtectedRoute>
       }>
-        <Route index element={<Navigate to="/admin/dashboard" replace />} />
+        <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="requests" element={<Requests />} />
         <Route path="logs" element={<Logs />} />
@@ -56,7 +56,7 @@ const AppRoutes = () => {
         <Route path="settings" element={<Settings />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/admin" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };

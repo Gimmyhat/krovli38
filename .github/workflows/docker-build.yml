@@ -11,6 +11,9 @@ env:
   FRONTEND_IMAGE: gimmyhat/krovli38-frontend
   ADMIN_IMAGE: gimmyhat/krovli38-admin
   SERVER_IMAGE: gimmyhat/krovli38-server
+  VITE_CLOUDINARY_CLOUD_NAME: dr0hjlr79
+  VITE_CLOUDINARY_API_KEY: 586934817968136
+  VITE_CLOUDINARY_UPLOAD_PRESET: krovli38_preset
 
 jobs:
   build-and-push:
@@ -45,6 +48,10 @@ jobs:
           file: docker/admin/Dockerfile
           push: true
           tags: ${{ env.ADMIN_IMAGE }}:latest
+          build-args: |
+            VITE_CLOUDINARY_CLOUD_NAME=${{ env.VITE_CLOUDINARY_CLOUD_NAME }}
+            VITE_CLOUDINARY_API_KEY=${{ env.VITE_CLOUDINARY_API_KEY }}
+            VITE_CLOUDINARY_UPLOAD_PRESET=${{ env.VITE_CLOUDINARY_UPLOAD_PRESET }}
           cache-from: type=registry,ref=${{ env.ADMIN_IMAGE }}:buildcache
           cache-to: type=registry,ref=${{ env.ADMIN_IMAGE }}:buildcache,mode=max
 
@@ -98,6 +105,9 @@ jobs:
             
             # Обновляем переменные окружения
             echo "DOCKER_HUB_USERNAME=${{ env.DOCKER_HUB_USERNAME }}" > .env
+            echo "VITE_CLOUDINARY_CLOUD_NAME=${{ env.VITE_CLOUDINARY_CLOUD_NAME }}" >> .env
+            echo "VITE_CLOUDINARY_API_KEY=${{ env.VITE_CLOUDINARY_API_KEY }}" >> .env
+            echo "VITE_CLOUDINARY_UPLOAD_PRESET=${{ env.VITE_CLOUDINARY_UPLOAD_PRESET }}" >> .env
             
             # Подтягиваем новые образы
             echo "Pulling new images..."
