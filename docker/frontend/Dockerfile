@@ -21,6 +21,7 @@ RUN npm install --platform=linux --arch=x64 esbuild@0.18.20 @esbuild/linux-x64@0
 # Копируем только необходимые файлы для сборки
 COPY tsconfig*.json ./
 COPY vite.config.ts ./
+COPY index.html ./
 COPY public ./public
 COPY src ./src
 
