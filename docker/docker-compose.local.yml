@@ -5,6 +5,7 @@ services:
       - '27017:27017'
     volumes:
       - mongodb_data_local:/data/db
+    command: mongod --wiredTigerCacheSizeGB 1 # Ограничиваем использование памяти
 
   server:
     build:
@@ -12,28 +13,51 @@ services:
         NODE_ENV: development
     environment:
       - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true # Для лучшего отслеживания изменений файлов
+      - TS_NODE_TRANSPILE_ONLY=true # Ускоряем компиляцию TypeScript
     volumes:
-      - ../server/src:/app/src
-      - ../server/package.json:/app/package.json
-      - ../server/tsconfig.json:/app/tsconfig.json
+      - ../server/src:/app/src:delegated
+      - ../server/package.json:/app/package.json:delegated
+      - ../server/tsconfig.json:/app/tsconfig.json:delegated
+      - ../server/node_modules:/app/node_modules:delegated
+    command: npm run dev # Запускаем в режиме разработки с nodemon
 
   frontend:
+    build:
+      args:
+        NODE_ENV: development
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true # Для лучшего отслеживания изменений файлов
     volumes:
-      - ../src:/app/src
-      - ../public:/app/public
-      - ../package.json:/app/package.json
-      - ../vite.config.ts:/app/vite.config.ts
+      - ../src:/app/src:delegated
+      - ../public:/app/public:delegated
+      - ../package.json:/app/package.json:delegated
+      - ../vite.config.ts:/app/vite.config.ts:delegated
+      - ../node_modules:/app/node_modules:delegated
+    command: npm run dev # Запускаем Vite в режиме разработки
 
   admin:
+    build:
+      args:
+        NODE_ENV: development
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true # Для лучшего отслеживания изменений файлов
     volumes:
-      - ../admin-panel/src:/app/src
-      - ../admin-panel/public:/app/public
-      - ../admin-panel/package.json:/app/package.json
-      - ../admin-panel/vite.config.ts:/app/vite.config.ts
+      - ../admin-panel/src:/app/src:delegated
+      - ../admin-panel/public:/app/public:delegated
+      - ../admin-panel/package.json:/app/package.json:delegated
+      - ../admin-panel/vite.config.ts:/app/vite.config.ts:delegated
+      - ../admin-panel/node_modules:/app/node_modules:delegated
+      - ../admin-panel/index.html:/app/index.html:delegated
+    command: npm run dev # Запускаем Vite в режиме разработки
 
   nginx:
     ports:
       - '80:80'
+    volumes:
+      - ../docker/nginx/conf.d:/etc/nginx/conf.d:delegated # Для обновления конфигурации без перезапуска
 
 volumes:
   mongodb_data_local: 

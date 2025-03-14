@@ -8,45 +8,44 @@ ARG CLOUDINARY_CLOUD_NAME
 ARG CLOUDINARY_API_KEY
 ARG CLOUDINARY_API_SECRET
 
-# Install dependencies
+# Копируем только package.json и package-lock.json для кэширования слоя зависимостей
 COPY server/package*.json ./
 
-# Install ALL dependencies including devDependencies
+# Устанавливаем зависимости
 ENV NODE_ENV=development
-RUN npm install
+RUN npm ci
 
-# Copy source code and startup script
-COPY server/ .
+# Копируем только необходимые файлы для сборки
+COPY server/tsconfig.json ./
+COPY server/src ./src
 COPY docker/server/startup.sh ./startup.sh
 
-# Create logs directory and set permissions
+# Создаем директорию для логов и устанавливаем права
 RUN mkdir -p logs && \
     chown -R node:node . && \
     chmod +x ./startup.sh
 
-# Build TypeScript code (включая все скрипты)
+# Собираем TypeScript код
 RUN npm run build
 
-# Switch to production environment
+# Переключаемся на production окружение
 ENV NODE_ENV=${NODE_ENV}
 ENV PORT=3000
 
-# Cloudinary environment variables
+# Переменные окружения Cloudinary
 ENV CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-dr0hjlr79}
 ENV CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-586934817968136}
 ENV CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-YqBkV_O8W2RwDIpOTuEea3ghoFA}
 
-# Debug environment variables
+# Отладочная информация
 RUN echo "Building with environment variables:" && \
-    echo "NODE_ENV: $NODE_ENV" && \
-    echo "CLOUDINARY_CLOUD_NAME: $CLOUDINARY_CLOUD_NAME" && \
-    echo "CLOUDINARY_API_KEY: $CLOUDINARY_API_KEY"
+    echo "NODE_ENV: $NODE_ENV"
 
-# Switch to non-root user
+# Переключаемся на непривилегированного пользователя
 USER node
 
-# Expose port
+# Экспортируем порт
 EXPOSE 3000
 
-# Start the server with startup script
+# Запускаем сервер с помощью скрипта запуска
 CMD ["./startup.sh"] 
