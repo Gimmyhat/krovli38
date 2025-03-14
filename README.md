@@ -14,15 +14,12 @@
 - `/server` - Серверная часть (Node.js + Express + MongoDB)
 - `/docker` - Docker конфигурации:
   - `docker-compose.yml` - Основная конфигурация для продакшена
-  - `docker-compose.local.yml` - Конфигурация для локальной разработки с оптимизациями
+  - `docker-compose.local.yml` - Конфигурация для локальной разработки
   - `docker-compose.dev.yml` - Конфигурация для разработки
   - `/nginx` - Конфигурация Nginx и SSL
   - `/mongodb` - Конфигурация MongoDB
-  - `/frontend`, `/admin`, `/server` - Оптимизированные Dockerfile'ы для каждого сервиса
-- `/scripts` - Вспомогательные скрипты:
-  - `rebuild.sh` - Скрипт для быстрой пересборки отдельных сервисов
-- `/docs` - Документация:
-  - `docker-optimization.md` - Руководство по оптимизации Docker
+  - `/frontend`, `/admin`, `/server` - Dockerfile'ы для каждого сервиса
+- `/scripts` - Вспомогательные скрипты
 - `/.github` - GitHub Actions для CI/CD
 
 ## Реализованный функционал
@@ -34,8 +31,6 @@
 - Автоматическое резервное копирование БД
 - Мониторинг здоровья сервисов
 - Система автоматического отката при ошибках
-- Оптимизированная Docker-инфраструктура для быстрой разработки
-- Система быстрой пересборки отдельных сервисов
 
 ## Технологии
 
@@ -94,18 +89,6 @@ make dev-restart
 
 # Просмотр логов
 make logs
-
-# Быстрая пересборка отдельных сервисов
-make rebuild-server     # Пересборка только сервера
-make rebuild-frontend   # Пересборка только фронтенда
-make rebuild-admin      # Пересборка только админ-панели
-make rebuild-all        # Пересборка всех сервисов
-
-# Пересборка без использования кэша
-make rebuild-server-nocache
-make rebuild-frontend-nocache
-make rebuild-admin-nocache
-make rebuild-all-nocache
 ```
 
 ### Команды для продакшена
@@ -202,7 +185,6 @@ docker compose -f docker/docker-compose.yml -f docker/docker-compose.local.yml -
 - [API документация](server/API.md)
 - [Инструкция по деплою](docs/deployment.md)
 - [Руководство по разработке](docs/development.md)
-- [Оптимизация Docker](docs/docker-optimization.md)
 
 ## Участие в разработке
 

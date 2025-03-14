@@ -1,0 +1,61 @@
+---
+description: Automatically creates and updates CONTEXT.md to maintain project architecture, dependencies, and coding standards.
+globs: *.*
+alwaysApply: false
+---
+# .cursor/rules.yaml
+rules:
+  - id: auto-context
+    description: Automatic CONTEXT.md management
+    triggers:
+      - project-init
+      - dependency-change
+      - structure-change
+    actions:
+      - create: CONTEXT.md
+        template: |
+          # Project Context
+          <!-- @cursor:freeze -->
+          ## Architecture
+          {%- if exists("src/api") %}
+          API endpoints → /src/api/  
+          Business logic → /src/services/  
+          Data access → /src/repositories/
+          {%- endif %}
+
+          <!-- @cursor:dependencies -->
+          ## Dependencies
+          {%- for dep in detect_dependencies() %}
+          - {{ dep }}
+          {%- endfor %}
+
+          <!-- @cursor:conventions -->
+          ## Standards
+          1. Error responses: { "error": "message" }
+          2. Logging: utils.logger.log_event()
+          3. Validation: Pydantic schemas
+
+  - id: context-guard
+    description: Enforce context awareness
+    constraints:
+      - All code must align with CONTEXT.md#Architecture
+      - Dependency versions must match CONTEXT.md#Dependencies
+      - Structural changes require confirmation
+
+  - id: auto-update
+    description: Keep context in sync
+    triggers:
+      - file-create
+      - dependency-install
+    actions:
+      - update: CONTEXT.md
+        sections:
+          - dependencies: detect_dependencies()
+          - structure: tree -L 2 src/
+
+  - id: legacy-protection
+    description: Preserve stable components
+    pattern: [auth/**, config.py]
+    constraints:
+      - Changes to # STABLE blocks require review
+      - Must maintain backward compatibility

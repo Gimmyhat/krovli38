@@ -32,15 +32,6 @@ help:
 	@echo "  make status          - Container status"
 	@echo "  make mongo-dump      - Backup database"
 	@echo "  make mongo-restore   - Restore database"
-	@echo "$(YELLOW)Quick rebuilds:$(NC)"
-	@echo "  make rebuild-server          - Quick rebuild and restart server"
-	@echo "  make rebuild-frontend        - Quick rebuild and restart frontend"
-	@echo "  make rebuild-admin           - Quick rebuild and restart admin panel"
-	@echo "  make rebuild-all             - Quick rebuild and restart all services"
-	@echo "  make rebuild-server-nocache   - Quick rebuild and restart server without cache"
-	@echo "  make rebuild-frontend-nocache - Quick rebuild and restart frontend without cache"
-	@echo "  make rebuild-admin-nocache   - Quick rebuild and restart admin panel without cache"
-	@echo "  make rebuild-all-nocache     - Quick rebuild and restart all services without cache"
 
 # Development
 # For local development with hot-reload and debugging capabilities
@@ -163,53 +154,4 @@ check:
 	@echo "$(GREEN)Checking dependencies...$(NC)"
 	@command -v docker >/dev/null 2>&1 || { echo "$(RED)Docker is not installed$(NC)" >&2; exit 1; }
 	@command -v docker-compose >/dev/null 2>&1 || { echo "$(RED)Docker Compose is not installed$(NC)" >&2; exit 1; }
-	@echo "$(GREEN)All dependencies are installed$(NC)"
-
-# Быстрая пересборка и перезапуск отдельных сервисов
-.PHONY: rebuild-server
-rebuild-server:
-	@echo "$(GREEN)Быстрая пересборка и перезапуск сервера...$(NC)"
-	@chmod +x scripts/rebuild.sh
-	@./scripts/rebuild.sh server
-
-.PHONY: rebuild-frontend
-rebuild-frontend:
-	@echo "$(GREEN)Быстрая пересборка и перезапуск фронтенда...$(NC)"
-	@chmod +x scripts/rebuild.sh
-	@./scripts/rebuild.sh frontend
-
-.PHONY: rebuild-admin
-rebuild-admin:
-	@echo "$(GREEN)Быстрая пересборка и перезапуск админ-панели...$(NC)"
-	@chmod +x scripts/rebuild.sh
-	@./scripts/rebuild.sh admin
-
-.PHONY: rebuild-all
-rebuild-all:
-	@echo "$(GREEN)Быстрая пересборка и перезапуск всех сервисов...$(NC)"
-	@chmod +x scripts/rebuild.sh
-	@./scripts/rebuild.sh all
-
-.PHONY: rebuild-server-nocache
-rebuild-server-nocache:
-	@echo "$(GREEN)Быстрая пересборка и перезапуск сервера без кэша...$(NC)"
-	@chmod +x scripts/rebuild.sh
-	@./scripts/rebuild.sh server --no-cache
-
-.PHONY: rebuild-frontend-nocache
-rebuild-frontend-nocache:
-	@echo "$(GREEN)Быстрая пересборка и перезапуск фронтенда без кэша...$(NC)"
-	@chmod +x scripts/rebuild.sh
-	@./scripts/rebuild.sh frontend --no-cache
-
-.PHONY: rebuild-admin-nocache
-rebuild-admin-nocache:
-	@echo "$(GREEN)Быстрая пересборка и перезапуск админ-панели без кэша...$(NC)"
-	@chmod +x scripts/rebuild.sh
-	@./scripts/rebuild.sh admin --no-cache
-
-.PHONY: rebuild-all-nocache
-rebuild-all-nocache:
-	@echo "$(GREEN)Быстрая пересборка и перезапуск всех сервисов без кэша...$(NC)"
-	@chmod +x scripts/rebuild.sh
-	@./scripts/rebuild.sh all --no-cache 
+	@echo "$(GREEN)All dependencies are installed$(NC)" 
