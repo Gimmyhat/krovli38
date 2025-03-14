@@ -13,7 +13,7 @@
 ```
 CLOUDINARY_CLOUD_NAME=dr0hjlr79
 CLOUDINARY_API_KEY=586934817968136
-CLOUDINARY_API_SECRET=Uw-Tz9Xt-Uw-Tz9Xt-Uw-Tz9Xt
+CLOUDINARY_API_SECRET=YqBkV_O8W2RwDIpOTuEea3ghoFA
 CLOUDINARY_UPLOAD_PRESET=krovli38_preset
 ```
 
@@ -22,7 +22,7 @@ CLOUDINARY_UPLOAD_PRESET=krovli38_preset
 ```
 CLOUDINARY_CLOUD_NAME=dr0hjlr79
 CLOUDINARY_API_KEY=586934817968136
-CLOUDINARY_API_SECRET=Uw-Tz9Xt-Uw-Tz9Xt-Uw-Tz9Xt
+CLOUDINARY_API_SECRET=YqBkV_O8W2RwDIpOTuEea3ghoFA
 VITE_CLOUDINARY_CLOUD_NAME=dr0hjlr79
 VITE_CLOUDINARY_API_KEY=586934817968136
 VITE_CLOUDINARY_UPLOAD_PRESET=krovli38_preset
@@ -54,4 +54,4 @@ npm run dev
 
 Cloudinary используется в проекте для хранения и обработки изображений. Изображения загружаются на серверы Cloudinary, а в базе данных хранятся только ссылки на эти изображения.
 
-Конфигурация Cloudinary находится в файле `server/src/config/cloudinary.js`, который использует библиотеку `cloudinary` для взаимодействия с API Cloudinary. 
+Конфигурация Cloudinary находится в файле `server/src/config/cloudinary.ts`, который использует библиотеку `cloudinary` для взаимодействия с API Cloudinary. 

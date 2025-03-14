@@ -164,6 +164,8 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
  */
 export const getImages = async (req: Request, res: Response) => {
   try {
+    console.log('Получен запрос на получение изображений с параметрами:', req.query);
+    
     const { 
       page = 1, 
       limit = 12, 
@@ -192,25 +194,43 @@ export const getImages = async (req: Request, res: Response) => {
       ];
     }
 
-    // Считаем общее количество изображений по фильтру
-    const totalItems = await Image.countDocuments(query);
-    const totalPages = Math.ceil(totalItems / Number(limit));
-    const currentPage = Number(page);
+    console.log('Применяемые фильтры для запроса:', JSON.stringify(query));
 
-    // Получаем изображения с пагинацией
-    const images = await Image.find(query)
+    // Используем более простой подход без сложных запросов
+    // Получаем только необходимые поля для уменьшения объема данных
+    console.log('Выполняем запрос изображений с пагинацией');
+    const images = await Image.find(query, {
+        _id: 1,
+        public_id: 1,
+        url: 1,
+        secure_url: 1,
+        type: 1,
+        alt: 1,
+        title: 1,
+        section: 1,
+        width: 1,
+        height: 1,
+        format: 1,
+        tags: 1,
+        isActive: 1
+      })
       .sort({ order: 1, createdAt: -1 })
-      .skip((currentPage - 1) * Number(limit))
-      .limit(Number(limit));
+      .skip((Number(page) - 1) * Number(limit))
+      .limit(Number(limit))
+      .lean() // Используем lean() для более быстрого получения данных
+      .maxTimeMS(30000) // Увеличиваем таймаут до 30 секунд
+      .exec();
+    
+    console.log(`Найдено ${images.length} изображений`);
 
     // Отправляем результат в нужном формате
+    console.log('Отправляем ответ клиенту');
     res.json({
       images,
       pagination: {
-        totalItems,
-        currentPage,
-        totalPages,
-        limit: Number(limit)
+        currentPage: Number(page),
+        limit: Number(limit),
+        hasMore: images.length === Number(limit)
       }
     });
   } catch (error: any) {
@@ -338,8 +358,18 @@ export const createFromCloudinary = async (req: Request, res: Response) => {
   try {
     const { public_id, type, alt, title, section, tags } = req.body;
 
+    console.log('Получен запрос на создание изображения из Cloudinary:', {
+      public_id,
+      type,
+      section,
+      hasAlt: !!alt,
+      hasTitle: !!title,
+      tagsCount: tags ? tags.length : 0
+    });
+
     // Проверяем наличие public_id
     if (!public_id) {
+      console.log('Ошибка: не указан public_id изображения');
       return res.status(400).json({ error: 'Не указан public_id изображения' });
     }
 
@@ -347,12 +377,14 @@ export const createFromCloudinary = async (req: Request, res: Response) => {
     console.log('Cloudinary config:', {
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
       api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET ? 'Установлен' : 'Не установлен'
+      api_secret: process.env.CLOUDINARY_API_SECRET ? 'Установлен' : 'Не установлен',
+      upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET
     });
 
     // Проверяем, существует ли уже изображение с таким public_id
     const existingImage = await Image.findOne({ public_id });
     if (existingImage) {
+      console.log('Изображение с таким public_id уже существует:', existingImage._id);
       return res.status(409).json({ 
         error: 'Изображение с таким public_id уже существует',
         image: existingImage 
@@ -361,7 +393,15 @@ export const createFromCloudinary = async (req: Request, res: Response) => {
 
     // Получаем информацию о ресурсе из Cloudinary
     try {
+      console.log('Запрос информации о ресурсе из Cloudinary:', public_id);
       const result = await cloudinaryConfig.v2.api.resource(public_id);
+      console.log('Получена информация о ресурсе из Cloudinary:', {
+        public_id: result.public_id,
+        url: result.url,
+        format: result.format,
+        width: result.width,
+        height: result.height
+      });
       
       // Создаем запись в MongoDB
       const newImage = new Image({
@@ -380,7 +420,9 @@ export const createFromCloudinary = async (req: Request, res: Response) => {
       });
 
       // Сохраняем в БД
+      console.log('Сохраняем изображение в БД');
       await newImage.save();
+      console.log('Изображение успешно сохранено в БД:', newImage._id);
 
       // Возвращаем результат
       res.status(201).json({
@@ -389,6 +431,13 @@ export const createFromCloudinary = async (req: Request, res: Response) => {
       });
     } catch (cloudinaryError: any) {
       console.error('Ошибка при получении данных из Cloudinary:', cloudinaryError);
+      console.error('Детали ошибки:', {
+        message: cloudinaryError.message,
+        code: cloudinaryError.code,
+        http_code: cloudinaryError.http_code,
+        name: cloudinaryError.name,
+        stack: cloudinaryError.stack
+      });
       return res.status(500).json({
         error: 'Ошибка при получении данных из Cloudinary',
         details: cloudinaryError.message
@@ -396,6 +445,12 @@ export const createFromCloudinary = async (req: Request, res: Response) => {
     }
   } catch (error: any) {
     console.error('Ошибка при создании изображения из Cloudinary:', error);
+    console.error('Детали ошибки:', {
+      message: error.message,
+      code: error.code,
+      name: error.name,
+      stack: error.stack
+    });
     res.status(500).json({
       error: 'Ошибка при создании изображения',
       details: error.message
