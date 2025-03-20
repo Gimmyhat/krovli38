@@ -8,7 +8,7 @@ dotenv.config();
 
 async function updateLogoPath() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://mongodb:27017/krovli38');
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://admin:admin_password@mongodb:27017/krovli38?authSource=admin');
     console.log('Connected to MongoDB');
 
     // Создаем настройку для пути к логотипу, если она не существует

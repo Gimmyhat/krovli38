@@ -8,7 +8,7 @@ dotenv.config();
 const checkAdmin = async () => {
   try {
     // Подключение к базе данных
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://admin:admin_password@localhost:27017/krovli38?authSource=admin';
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://admin:admin_password@mongodb:27017/krovli38?authSource=admin';
     await mongoose.connect(mongoUri);
     console.log('Connected to MongoDB');
 

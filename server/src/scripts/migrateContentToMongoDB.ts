@@ -33,7 +33,7 @@ const readContentFile = (): any => {
 const migrateContent = async (): Promise<void> => {
   try {
     // Подключаемся к MongoDB
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/krovli38';
+    const mongoURI = process.env.MONGODB_URI || 'mongodb://admin:admin_password@mongodb:27017/krovli38?authSource=admin';
     await mongoose.connect(mongoURI);
     logger.info('Подключено к MongoDB');
 

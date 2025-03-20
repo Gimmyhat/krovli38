@@ -13,7 +13,7 @@ app.use(express.json());
 app.use('/api/health', healthRouter);
 
 // Подключение к MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/krovli38')
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://admin:admin_password@mongodb:27017/krovli38?authSource=admin')
   .then(() => {
     console.log('Connected to MongoDB');
   })
