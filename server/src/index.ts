@@ -14,6 +14,7 @@ import settingsRoutes from './routes/settings';
 import galleryRoutes from './routes/galleryRoutes';
 // Маршруты для работы с контентом
 import contentRoutes from './routes/contentRoutes';
+import healthRouter from './routes/health';
 import { initializeAdmin } from './scripts/init';
 import cloudinaryConfig from './config/cloudinary';
 import { SERVER, DATABASE } from './constants';
@@ -56,8 +57,10 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(httpLogger); // Добавляем логирование HTTP запросов
+app.use(logRequest);
 
 // Маршруты
+app.use('/api/health', healthRouter);
 app.use('/api/auth', authRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/logs', logsRoutes);
