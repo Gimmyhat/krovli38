@@ -80,13 +80,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
       - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "docker/docker-compose.yml,docker/nginx/,server/src/scripts/"
+          source: "docker/docker-compose.yml,docker/nginx/,server/src/scripts/,docker/init-letsencrypt.sh"
           target: "/root/krovli38"
           strip_components: 1
 
@@ -105,7 +115,7 @@ jobs:
             # Создаем бэкап базы данных перед обновлением
             echo "Creating database backup..."
             BACKUP_NAME="backup_$(date +%Y%m%d_%H%M%S).gz"
-            docker compose exec -T mongodb mongodump --uri="mongodb://admin:admin_password@localhost:27017/krovli38?authSource=admin" --archive --gzip > "db_backups/$BACKUP_NAME"
+            docker compose exec -T mongodb mongodump --uri="mongodb://admin:admin_password@localhost:27017/krovli38?authSource=admin" --archive --gzip > "db_backups/$BACKUP_NAME" || echo "No database to backup yet"
             
             # Останавливаем старые контейнеры
             echo "Stopping old containers..."
@@ -130,7 +140,7 @@ jobs:
             
             # Ждем, пока MongoDB будет готова
             echo "Waiting for MongoDB to be ready..."
-            sleep 10
+            sleep 30
             
             # Проверяем и инициализируем админа
             echo "Checking admin user..."
@@ -138,22 +148,27 @@ jobs:
             
             # Проверяем здоровье сервисов
             echo "Checking services health..."
-            for i in {1..30}; do
+            for i in {1..60}; do
               if curl -s http://localhost/api > /dev/null; then
                 echo "API is responding"
                 break
               fi
-              if [ $i -eq 30 ]; then
+              if [ $i -eq 60 ]; then
                 echo "API failed to respond"
                 # Восстанавливаем из бэкапа в случае проблем
                 docker compose down
                 docker compose up -d mongodb
-                sleep 10
-                mongorestore --uri="mongodb://admin:admin_password@localhost:27017/krovli38?authSource=admin" --archive --gzip < "db_backups/$BACKUP_NAME"
+                sleep 30
+                if [ -f "db_backups/$BACKUP_NAME" ]; then
+                  echo "Restoring from backup $BACKUP_NAME"
+                  mongorestore --uri="mongodb://admin:admin_password@localhost:27017/krovli38?authSource=admin" --archive --gzip < "db_backups/$BACKUP_NAME"
+                else
+                  echo "No backup file found for restoration"
+                fi
                 docker compose up -d
                 exit 1
               fi
-              echo "Waiting for API... ($i/30)"
+              echo "Waiting for API... ($i/60)"
               sleep 2
             done
             
@@ -162,18 +177,13 @@ jobs:
             
             # Удаляем старые бэкапы (оставляем последние 5)
             cd db_backups && ls -t | tail -n +6 | xargs -r rm --
-
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.5.4
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Add server to known hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
-
-      - name: Deploy to server
-        run: |
-          scp -r docker/* ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:/home/${{ secrets.SSH_USER }}/krovli38/docker/
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "cd /home/${{ secrets.SSH_USER }}/krovli38 && git pull && chmod +x docker/init-letsencrypt.sh && docker/init-letsencrypt.sh && docker-compose -f docker/docker-compose.yml up -d --build" 
+            
+            # Настройка SSL, если новый запуск
+            cd /root/krovli38
+            if [ ! -f "/etc/letsencrypt/live/krovlya38.pro/fullchain.pem" ]; then
+              echo "Setting up SSL for the first time..."
+              chmod +x init-letsencrypt.sh
+              ./init-letsencrypt.sh
+            else
+              echo "SSL certificates already exist, skipping setup"
+            fi 

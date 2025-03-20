@@ -11,7 +11,7 @@ mkdir -p $data_path/conf/live/$domains
 mkdir -p $data_path/www
 
 # Остановим и удалим старые контейнеры
-docker-compose -f docker/docker-compose.yml down
+docker compose -f docker/docker-compose.yml down
 
 # Удалим старые сертификаты
 rm -rf $data_path/conf/live/$domains
@@ -28,14 +28,14 @@ curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/c
 curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot/certbot/ssl-dhparams.pem > "$data_path/conf/ssl-dhparams.pem"
 
 # Запустим контейнеры
-docker-compose -f docker/docker-compose.yml up -d
+docker compose -f docker/docker-compose.yml up -d
 
 # Дождемся запуска Nginx
 echo "Ожидаем запуска Nginx..."
 sleep 5
 
 # Запросим сертификат Let's Encrypt
-docker-compose -f docker/docker-compose.yml run --rm certbot certonly --webroot \
+docker compose -f docker/docker-compose.yml run --rm certbot certonly --webroot \
   --webroot-path=/var/www/certbot \
   --email $email \
   --agree-tos \
@@ -44,6 +44,6 @@ docker-compose -f docker/docker-compose.yml run --rm certbot certonly --webroot 
   -d ${domains[0]} -d ${domains[1]}
 
 # Перезапустим Nginx
-docker-compose -f docker/docker-compose.yml exec nginx nginx -s reload
+docker compose -f docker/docker-compose.yml exec nginx nginx -s reload
 
 echo "Поздравляем! HTTPS настроен для $domains" 
