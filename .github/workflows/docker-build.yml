@@ -161,4 +161,19 @@ jobs:
             docker system prune -f
             
             # Удаляем старые бэкапы (оставляем последние 5)
-            cd db_backups && ls -t | tail -n +6 | xargs -r rm -- 
+            cd db_backups && ls -t | tail -n +6 | xargs -r rm --
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to server
+        run: |
+          scp -r docker/* ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:/home/${{ secrets.SSH_USER }}/krovli38/docker/
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "cd /home/${{ secrets.SSH_USER }}/krovli38 && git pull && chmod +x docker/init-letsencrypt.sh && docker/init-letsencrypt.sh && docker-compose -f docker/docker-compose.yml up -d --build" 

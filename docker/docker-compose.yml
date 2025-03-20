@@ -2,18 +2,21 @@
 # Includes frontend, admin panel, backend server, MongoDB, and Nginx reverse proxy
 
 # Базовая конфигурация для всех окружений
+version: '3.8'
+
 services:
   mongodb:
     image: mongo:latest
+    container_name: krovli38-mongodb
     restart: always
     environment:
       - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:-admin}
       - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-admin_password}
       - MONGO_INITDB_DATABASE=${MONGO_DB:-krovli38}
     volumes:
-      - mongodb_data:/data/db
+      - mongodb-data:/data/db
     networks:
-      - app-network
+      - krovli38-network
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -21,8 +24,9 @@ services:
       retries: 5
       start_period: 30s
 
-  server:
+  backend:
     image: ${DOCKER_REGISTRY:-gimmyhat}/krovli38-server:${TAG:-latest}
+    container_name: krovli38-backend
     build:
       context: ..
       dockerfile: docker/server/Dockerfile
@@ -30,22 +34,23 @@ services:
         NODE_ENV: ${NODE_ENV:-production}
     restart: always
     environment:
-      - MONGODB_URI=mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin_password}@mongodb:27017/${MONGO_DB:-krovli38}?authSource=admin
+      - MONGODB_URI=mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin_password}@krovli38-mongodb:27017/${MONGO_DB:-krovli38}?authSource=admin
       - NODE_ENV=${NODE_ENV:-production}
       - JWT_SECRET=${JWT_SECRET:-your_super_secret_key_for_jwt_tokens_krovli38}
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-dr0hjlr79}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-586934817968136}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-YqBkV_O8W2RwDIpOTuEea3ghoFA}
     volumes:
-      - server_data:/app/data
+      - uploads:/app/server/uploads
     networks:
-      - app-network
+      - krovli38-network
     depends_on:
       mongodb:
         condition: service_healthy
 
   frontend:
     image: ${DOCKER_REGISTRY:-gimmyhat}/krovli38-frontend:${TAG:-latest}
+    container_name: krovli38-frontend
     build:
       context: ..
       dockerfile: docker/frontend/Dockerfile
@@ -55,10 +60,13 @@ services:
     environment:
       - VITE_API_URL=${VITE_API_URL:-/api}
     networks:
-      - app-network
+      - krovli38-network
+    depends_on:
+      - backend
 
-  admin:
+  admin-panel:
     image: ${DOCKER_REGISTRY:-gimmyhat}/krovli38-admin:${TAG:-latest}
+    container_name: krovli38-admin-panel
     build:
       context: ..
       dockerfile: docker/admin/Dockerfile
@@ -74,31 +82,45 @@ services:
       - VITE_CLOUDINARY_API_KEY=${VITE_CLOUDINARY_API_KEY:-586934817968136}
       - VITE_CLOUDINARY_UPLOAD_PRESET=${VITE_CLOUDINARY_UPLOAD_PRESET:-krovli38_preset}
     networks:
-      - app-network
+      - krovli38-network
+    depends_on:
+      - backend
 
   nginx:
-    image: nginx:alpine
+    image: nginx:latest
+    container_name: krovli38-nginx
     restart: always
     ports:
-      - '80:80'
-      - '443:443'
+      - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/ssl:/etc/nginx/ssl
       - ./nginx/logs:/var/log/nginx
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
     networks:
-      - app-network
+      - krovli38-network
     depends_on:
       - frontend
-      - admin
-      - server
+      - admin-panel
+      - backend
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+
+  certbot:
+    image: certbot/certbot
+    container_name: krovli38-certbot
+    restart: unless-stopped
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    depends_on:
+      - nginx
 
 networks:
-  app-network:
+  krovli38-network:
     driver: bridge
 
 volumes:
-  mongodb_data:
-    driver: local
-  server_data:
-    driver: local 
+  mongodb-data:
+  uploads: 
