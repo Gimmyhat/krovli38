@@ -210,10 +210,161 @@ jobs:
             
             # Настройка SSL, если новый запуск
             cd /root/krovli38
+            
+            # Сначала обновляем конфигурацию nginx для поддержки health check через HTTP
+            cat > nginx/conf.d/default.conf <<'NGINX_CONF'
+            upstream frontend {
+                server frontend:80;
+            }
+
+            upstream admin-panel {
+                server admin-panel:80;
+            }
+
+            upstream backend {
+                server backend:3000;
+            }
+
+            server {
+                listen 80;
+                server_name krovlya38.pro www.krovlya38.pro;
+                server_tokens off;
+
+                location /.well-known/acme-challenge/ {
+                    root /var/www/certbot;
+                }
+
+                # Всегда разрешаем HTTP для health check
+                location /api/health {
+                    proxy_pass http://backend;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                # Проверяем наличие SSL сертификатов
+                # Если сертификаты отсутствуют, временно разрешаем HTTP для всех запросов
+                # для обеспечения работы API во время получения сертификатов
+                if (!-f /etc/letsencrypt/live/krovlya38.pro/fullchain.pem) {
+                    location / {
+                        # Для frontend
+                        proxy_pass http://frontend;
+                        proxy_set_header Host $host;
+                        proxy_set_header X-Real-IP $remote_addr;
+                        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                        proxy_set_header X-Forwarded-Proto $scheme;
+                    }
+                    
+                    location /admin {
+                        proxy_pass http://admin-panel;
+                        proxy_set_header Host $host;
+                        proxy_set_header X-Real-IP $remote_addr;
+                        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                        proxy_set_header X-Forwarded-Proto $scheme;
+                    }
+                    
+                    location /api {
+                        proxy_pass http://backend;
+                        proxy_set_header Host $host;
+                        proxy_set_header X-Real-IP $remote_addr;
+                        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                        proxy_set_header X-Forwarded-Proto $scheme;
+                    }
+                    
+                    location /uploads {
+                        proxy_pass http://backend;
+                        proxy_set_header Host $host;
+                        proxy_set_header X-Real-IP $remote_addr;
+                        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                        proxy_set_header X-Forwarded-Proto $scheme;
+                    }
+                }
+                
+                # Если сертификаты есть, используем редирект на HTTPS
+                if (-f /etc/letsencrypt/live/krovlya38.pro/fullchain.pem) {
+                    location / {
+                        return 301 https://$host$request_uri;
+                    }
+                }
+            }
+
+            # Настройка HTTPS сервера
+            server {
+                listen 443 ssl;
+                server_name krovlya38.pro www.krovlya38.pro;
+                server_tokens off;
+
+                ssl_certificate /etc/letsencrypt/live/krovlya38.pro/fullchain.pem;
+                ssl_certificate_key /etc/letsencrypt/live/krovlya38.pro/privkey.pem;
+                include /etc/letsencrypt/options-ssl-nginx.conf;
+                ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+                location / {
+                    proxy_pass http://frontend;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                location /admin {
+                    proxy_pass http://admin-panel;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                location /api {
+                    proxy_pass http://backend;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                location /uploads {
+                    proxy_pass http://backend;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                # Увеличиваем размер загружаемых файлов
+                client_max_body_size 10M;
+
+                # Security headers с разрешением для Cloudinary
+                add_header X-Frame-Options "SAMEORIGIN" always;
+                add_header X-XSS-Protection "1; mode=block" always;
+                add_header X-Content-Type-Options "nosniff" always;
+                add_header Referrer-Policy "no-referrer-when-downgrade" always;
+                add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline' 'unsafe-eval'; connect-src 'self' *.cloudinary.com api.cloudinary.com; img-src 'self' data: blob: *.cloudinary.com res.cloudinary.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.cloudinary.com; frame-src 'self' *.cloudinary.com data: blob:;" always;
+            }
+            NGINX_CONF
+            
+            # Запускаем контейнеры с новой конфигурацией
+            docker compose up -d
+            
+            # Проверяем, доступен ли health check (должен быть доступен сразу)
+            echo "Checking health check immediately..."
+            if curl -s http://localhost/api/health > /dev/null; then
+              echo "Health check is responding!"
+            else
+              echo "Health check is not responding, checking container logs..."
+              docker compose logs nginx
+              docker compose logs backend
+            fi
+            
+            # Проверяем SSL сертификаты
             if [ ! -d "certbot/conf/live/krovlya38.pro" ]; then
               echo "Setting up SSL for the first time..."
               chmod +x init-letsencrypt.sh
               ./init-letsencrypt.sh
+              
+              # После получения сертификатов перезагружаем nginx
+              docker compose exec nginx nginx -s reload
             else
               echo "SSL certificates exist, checking renewal..."
               # Проверяем, нужно ли обновить сертификаты
