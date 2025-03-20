@@ -18,11 +18,13 @@ services:
     networks:
       - krovli38-network
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "--quiet"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
+    ports:
+      - "27017:27017"
 
   backend:
     image: ${DOCKER_REGISTRY:-gimmyhat}/krovli38-server:${TAG:-latest}
@@ -34,7 +36,7 @@ services:
         NODE_ENV: ${NODE_ENV:-production}
     restart: always
     environment:
-      - MONGODB_URI=mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin_password}@krovli38-mongodb:27017/${MONGO_DB:-krovli38}?authSource=admin
+      - MONGODB_URI=mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin_password}@mongodb:27017/${MONGO_DB:-krovli38}?authSource=admin
       - NODE_ENV=${NODE_ENV:-production}
       - JWT_SECRET=${JWT_SECRET:-your_super_secret_key_for_jwt_tokens_krovli38}
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-dr0hjlr79}
@@ -47,6 +49,12 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   frontend:
     image: ${DOCKER_REGISTRY:-gimmyhat}/krovli38-frontend:${TAG:-latest}
@@ -62,7 +70,8 @@ services:
     networks:
       - krovli38-network
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   admin-panel:
     image: ${DOCKER_REGISTRY:-gimmyhat}/krovli38-admin:${TAG:-latest}
@@ -84,7 +93,8 @@ services:
     networks:
       - krovli38-network
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   nginx:
     image: nginx:latest
@@ -101,9 +111,12 @@ services:
     networks:
       - krovli38-network
     depends_on:
-      - frontend
-      - admin-panel
-      - backend
+      frontend:
+        condition: service_started
+      admin-panel:
+        condition: service_started
+      backend:
+        condition: service_healthy
     command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
 
   certbot:
