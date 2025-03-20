@@ -215,5 +215,29 @@ jobs:
               chmod +x init-letsencrypt.sh
               ./init-letsencrypt.sh
             else
-              echo "SSL certificates already exist, skipping setup"
+              echo "SSL certificates exist, checking renewal..."
+              # Проверяем, нужно ли обновить сертификаты
+              docker compose run --rm certbot certbot renew --dry-run
+              if [ $? -eq 0 ]; then
+                echo "Certificates are up to date"
+              else
+                echo "Certificates need renewal"
+                docker compose run --rm certbot certbot renew
+                docker compose exec nginx nginx -s reload
+              fi
+            fi
+            
+            # Проверяем срок действия сертификатов
+            if [ -f "certbot/conf/live/krovlya38.pro/cert.pem" ]; then
+              EXPIRY=$(openssl x509 -enddate -noout -in certbot/conf/live/krovlya38.pro/cert.pem | cut -d= -f2)
+              EXPIRY_TS=$(date -d "$EXPIRY" +%s)
+              NOW_TS=$(date +%s)
+              DAYS_LEFT=$(( ($EXPIRY_TS - $NOW_TS) / 86400 ))
+              echo "SSL certificate expires in $DAYS_LEFT days"
+              
+              if [ $DAYS_LEFT -lt 30 ]; then
+                echo "Certificate expires soon, forcing renewal"
+                docker compose run --rm certbot certbot renew --force-renewal
+                docker compose exec nginx nginx -s reload
+              fi
             fi 
