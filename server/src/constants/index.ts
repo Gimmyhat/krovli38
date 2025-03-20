@@ -20,7 +20,7 @@ export const SERVER = {
 
 // Настройки базы данных
 export const DATABASE = {
-  URI: process.env.MONGO_URI || 'mongodb://admin:admin_password@localhost:27017/krovli38?authSource=admin',
+  URI: process.env.MONGO_URI || 'mongodb://admin:admin_password@mongodb:27017/krovli38?authSource=admin',
   OPTIONS: {
     useNewUrlParser: true,
     useUnifiedTopology: true,

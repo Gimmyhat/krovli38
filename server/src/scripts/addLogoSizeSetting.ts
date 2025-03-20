@@ -11,7 +11,7 @@ dotenv.config();
 async function addLogoSizeSetting() {
   try {
     // Подключаемся к MongoDB
-    const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://admin:admin_password@localhost:27017/krovli38?authSource=admin';
+    const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://admin:admin_password@mongodb:27017/krovli38?authSource=admin';
     
     await mongoose.connect(MONGODB_URI);
     console.log('Connected to MongoDB');

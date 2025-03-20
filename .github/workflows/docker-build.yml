@@ -80,13 +80,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
       - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "docker/docker-compose.yml,docker/nginx/,server/src/scripts/"
+          source: "docker/docker-compose.yml,docker/nginx/,server/src/scripts/,docker/init-letsencrypt.sh"
           target: "/root/krovli38"
           strip_components: 1
 
@@ -105,7 +115,12 @@ jobs:
             # Создаем бэкап базы данных перед обновлением
             echo "Creating database backup..."
             BACKUP_NAME="backup_$(date +%Y%m%d_%H%M%S).gz"
-            docker compose exec -T mongodb mongodump --uri="mongodb://admin:admin_password@localhost:27017/krovli38?authSource=admin" --archive --gzip > "db_backups/$BACKUP_NAME"
+            if docker compose ps | grep -q mongodb; then
+              echo "MongoDB container found, creating backup..."
+              docker compose exec -T mongodb mongodump --uri="mongodb://admin:admin_password@localhost:27017/krovli38?authSource=admin" --archive --gzip > "db_backups/$BACKUP_NAME" || echo "Failed to create backup"
+            else
+              echo "No MongoDB container running, skipping backup"
+            fi
             
             # Останавливаем старые контейнеры
             echo "Stopping old containers..."
@@ -124,41 +139,76 @@ jobs:
             echo "Pulling new images..."
             docker compose pull
             
-            # Запускаем контейнеры
-            echo "Starting new containers..."
-            docker compose up -d
-            
-            # Ждем, пока MongoDB будет готова
+            # Запускаем MongoDB отдельно и ждем её готовности
+            echo "Starting MongoDB..."
+            docker compose up -d mongodb
             echo "Waiting for MongoDB to be ready..."
-            sleep 10
-            
-            # Проверяем и инициализируем админа
-            echo "Checking admin user..."
-            docker compose exec -T server node dist/scripts/checkAdmin.js || docker compose exec -T server node dist/scripts/createAdmin.js
-            
-            # Проверяем здоровье сервисов
-            echo "Checking services health..."
             for i in {1..30}; do
-              if curl -s http://localhost/api > /dev/null; then
-                echo "API is responding"
+              if docker compose exec -T mongodb mongosh --eval "db.adminCommand('ping')" --quiet > /dev/null 2>&1; then
+                echo "MongoDB is ready"
                 break
               fi
               if [ $i -eq 30 ]; then
-                echo "API failed to respond"
-                # Восстанавливаем из бэкапа в случае проблем
-                docker compose down
-                docker compose up -d mongodb
-                sleep 10
-                mongorestore --uri="mongodb://admin:admin_password@localhost:27017/krovli38?authSource=admin" --archive --gzip < "db_backups/$BACKUP_NAME"
-                docker compose up -d
+                echo "MongoDB failed to start"
                 exit 1
               fi
-              echo "Waiting for API... ($i/30)"
+              echo "Waiting for MongoDB... ($i/30)"
               sleep 2
             done
+            
+            # Запускаем остальные контейнеры
+            echo "Starting other containers..."
+            docker compose up -d
+            
+            # Проверяем здоровье сервисов
+            echo "Checking services health..."
+            for i in {1..60}; do
+              if curl -s http://localhost/api/health > /dev/null; then
+                echo "API is responding"
+                break
+              fi
+              if [ $i -eq 60 ]; then
+                echo "API failed to respond"
+                echo "Checking container logs..."
+                docker compose logs backend
+                
+                # Проверяем статус контейнеров
+                echo "Container status:"
+                docker compose ps
+                
+                # Восстанавливаем из бэкапа в случае проблем
+                if [ -f "db_backups/$BACKUP_NAME" ]; then
+                  echo "Restoring from backup $BACKUP_NAME"
+                  docker compose down
+                  docker compose up -d mongodb
+                  sleep 30
+                  docker compose exec -T mongodb mongorestore --uri="mongodb://admin:admin_password@localhost:27017/krovli38?authSource=admin" --archive --gzip < "db_backups/$BACKUP_NAME"
+                  docker compose up -d
+                else
+                  echo "No backup file found for restoration"
+                fi
+                exit 1
+              fi
+              echo "Waiting for API... ($i/60)"
+              sleep 2
+            done
+            
+            # Проверяем и инициализируем админа
+            echo "Checking admin user..."
+            docker compose exec -T backend node dist/scripts/checkAdmin.js || docker compose exec -T backend node dist/scripts/createAdmin.js
             
             # Очистка старых образов
             docker system prune -f
             
             # Удаляем старые бэкапы (оставляем последние 5)
-            cd db_backups && ls -t | tail -n +6 | xargs -r rm -- 
+            cd db_backups && ls -t | tail -n +6 | xargs -r rm --
+            
+            # Настройка SSL, если новый запуск
+            cd /root/krovli38
+            if [ ! -f "/etc/letsencrypt/live/krovlya38.pro/fullchain.pem" ]; then
+              echo "Setting up SSL for the first time..."
+              chmod +x init-letsencrypt.sh
+              ./init-letsencrypt.sh
+            else
+              echo "SSL certificates already exist, skipping setup"
+            fi 
