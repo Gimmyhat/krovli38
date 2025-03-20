@@ -1,0 +1,29 @@
+name: SSL Certificate Renewal
+
+on:
+  schedule:
+    - cron: '0 0 1 * *'  # Запуск в первый день каждого месяца
+  workflow_dispatch:  # Позволяет запускать workflow вручную
+
+jobs:
+  renew-ssl:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Server and Renew SSL
+        uses: appleboy/ssh-action@master
+        with:
+          host: krovlya38.pro
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /root/krovli38
+            docker compose pull certbot
+            docker compose up -d certbot
+            # Ждем завершения обновления
+            sleep 30
+            # Перезагружаем nginx для применения новых сертификатов
+            docker compose exec -T nginx nginx -s reload 
