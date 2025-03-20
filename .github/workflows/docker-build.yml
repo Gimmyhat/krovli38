@@ -109,6 +109,11 @@ jobs:
           script: |
             cd /root/krovli38
             
+            # Создаем необходимые директории
+            mkdir -p certbot/www
+            mkdir -p certbot/conf
+            mkdir -p nginx/logs
+            
             # Создаем директорию для бэкапов если её нет
             mkdir -p db_backups
             
@@ -205,7 +210,7 @@ jobs:
             
             # Настройка SSL, если новый запуск
             cd /root/krovli38
-            if [ ! -f "/etc/letsencrypt/live/krovlya38.pro/fullchain.pem" ]; then
+            if [ ! -d "certbot/conf/live/krovlya38.pro" ]; then
               echo "Setting up SSL for the first time..."
               chmod +x init-letsencrypt.sh
               ./init-letsencrypt.sh
