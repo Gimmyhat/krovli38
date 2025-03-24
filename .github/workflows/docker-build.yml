@@ -2,7 +2,7 @@ name: Docker Build and Deploy
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feature/* ]
   pull_request:
     branches: [ main ]
 
@@ -25,12 +25,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Create default SSL certificates
-        run: |
-          mkdir -p ./nginx/conf.d
-          cd ./nginx/conf.d
-          openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout default.key -out default.crt -subj '/CN=localhost'
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -38,118 +32,89 @@ jobs:
         uses: docker/login-action@v3
         with:
           username: ${{ env.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      - name: Build and push frontend
+      - name: Build and push Frontend
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: docker/frontend/Dockerfile
+          context: ./frontend
+          file: ./docker/frontend/Dockerfile
           push: true
           tags: ${{ env.FRONTEND_IMAGE }}:latest
-          cache-from: type=registry,ref=${{ env.FRONTEND_IMAGE }}:buildcache
-          cache-to: type=registry,ref=${{ env.FRONTEND_IMAGE }}:buildcache,mode=max
+          build-args: |
+            VITE_CLOUDINARY_CLOUD_NAME=${{ env.VITE_CLOUDINARY_CLOUD_NAME }}
+            VITE_CLOUDINARY_API_KEY=${{ env.VITE_CLOUDINARY_API_KEY }}
+            VITE_CLOUDINARY_UPLOAD_PRESET=${{ env.VITE_CLOUDINARY_UPLOAD_PRESET }}
 
-      - name: Build and push admin panel
+      - name: Build and push Admin Panel
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: docker/admin/Dockerfile
+          context: ./admin-panel
+          file: ./docker/admin/Dockerfile
           push: true
           tags: ${{ env.ADMIN_IMAGE }}:latest
           build-args: |
             VITE_CLOUDINARY_CLOUD_NAME=${{ env.VITE_CLOUDINARY_CLOUD_NAME }}
             VITE_CLOUDINARY_API_KEY=${{ env.VITE_CLOUDINARY_API_KEY }}
             VITE_CLOUDINARY_UPLOAD_PRESET=${{ env.VITE_CLOUDINARY_UPLOAD_PRESET }}
-          cache-from: type=registry,ref=${{ env.ADMIN_IMAGE }}:buildcache
-          cache-to: type=registry,ref=${{ env.ADMIN_IMAGE }}:buildcache,mode=max
 
-      - name: Build and push server
+      - name: Build and push Server
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: docker/server/Dockerfile
+          context: ./server
+          file: ./docker/server/Dockerfile
           push: true
           tags: ${{ env.SERVER_IMAGE }}:latest
           build-args: |
-            NODE_ENV=production
             CLOUDINARY_CLOUD_NAME=${{ env.CLOUDINARY_CLOUD_NAME }}
             CLOUDINARY_API_KEY=${{ env.CLOUDINARY_API_KEY }}
             CLOUDINARY_API_SECRET=${{ env.CLOUDINARY_API_SECRET }}
-          cache-from: type=registry,ref=${{ env.SERVER_IMAGE }}:buildcache
-          cache-to: type=registry,ref=${{ env.SERVER_IMAGE }}:buildcache,mode=max
 
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.5.4
+      - name: Deploy to Production
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/feature/')
+        uses: appleboy/ssh-action@v1.0.0
         with:
-          ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
-
-      - name: Add server to known hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Copy files to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "docker/docker-compose.yml,docker/nginx/,server/src/scripts/,docker/init-letsencrypt.sh"
-          target: "/root/krovli38"
-          strip_components: 1
-
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
+          host: krovlya38.pro
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /root/krovli38
-            
             # Создаем необходимые директории
-            mkdir -p certbot/www
-            mkdir -p certbot/conf
-            mkdir -p nginx/logs
-            
+            mkdir -p /root/krovli38
+            mkdir -p /root/krovli38/certbot/www
+            mkdir -p /root/krovli38/certbot/conf
+            mkdir -p /root/krovli38/nginx/logs
+
             # Создаем директорию для бэкапов если её нет
-            mkdir -p db_backups
-            
+            mkdir -p /root/krovli38/db_backups
+
             # Создаем бэкап базы данных перед обновлением
             echo "Creating database backup..."
             BACKUP_NAME="backup_$(date +%Y%m%d_%H%M%S).gz"
-            if docker compose ps | grep -q mongodb; then
+            if docker compose -f /root/krovli38/docker-compose.yml ps | grep -q mongodb; then
               echo "MongoDB container found, creating backup..."
-              docker compose exec -T mongodb mongodump --uri="mongodb://admin:admin_password@localhost:27017/krovli38?authSource=admin" --archive --gzip > "db_backups/$BACKUP_NAME" || echo "Failed to create backup"
+              docker compose -f /root/krovli38/docker-compose.yml exec -T mongodb mongodump --uri="mongodb://admin:admin_password@localhost:27017/krovli38?authSource=admin" --archive --gzip > "/root/krovli38/db_backups/$BACKUP_NAME" || echo "Failed to create backup"
             else
               echo "No MongoDB container running, skipping backup"
             fi
-            
+
             # Останавливаем старые контейнеры
             echo "Stopping old containers..."
+            cd /root/krovli38
             docker compose down
-            
+
             # Обновляем переменные окружения
-            echo "DOCKER_HUB_USERNAME=${{ env.DOCKER_HUB_USERNAME }}" > .env
-            echo "VITE_CLOUDINARY_CLOUD_NAME=${{ env.VITE_CLOUDINARY_CLOUD_NAME }}" >> .env
-            echo "VITE_CLOUDINARY_API_KEY=${{ env.VITE_CLOUDINARY_API_KEY }}" >> .env
-            echo "VITE_CLOUDINARY_UPLOAD_PRESET=${{ env.VITE_CLOUDINARY_UPLOAD_PRESET }}" >> .env
-            echo "CLOUDINARY_CLOUD_NAME=${{ env.CLOUDINARY_CLOUD_NAME }}" >> .env
-            echo "CLOUDINARY_API_KEY=${{ env.CLOUDINARY_API_KEY }}" >> .env
-            echo "CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }}" >> .env
-            
+            echo "DOCKER_HUB_USERNAME=gimmyhat" > .env
+            echo "VITE_CLOUDINARY_CLOUD_NAME=dr0hjlr79" >> .env
+            echo "VITE_CLOUDINARY_API_KEY=586934817968136" >> .env
+            echo "VITE_CLOUDINARY_UPLOAD_PRESET=krovli38_preset" >> .env
+            echo "CLOUDINARY_CLOUD_NAME=dr0hjlr79" >> .env
+            echo "CLOUDINARY_API_KEY=586934817968136" >> .env
+            echo "CLOUDINARY_API_SECRET=" >> .env
+
             # Подтягиваем новые образы
             echo "Pulling new images..."
             docker compose pull
-            
+
             # Запускаем MongoDB отдельно и ждем её готовности
             echo "Starting MongoDB..."
             docker compose up -d mongodb
@@ -166,11 +131,11 @@ jobs:
               echo "Waiting for MongoDB... ($i/30)"
               sleep 2
             done
-            
+
             # Запускаем остальные контейнеры
             echo "Starting other containers..."
             docker compose up -d
-            
+
             # Проверяем здоровье сервисов
             echo "Checking services health..."
             for i in {1..60}; do
@@ -203,198 +168,13 @@ jobs:
               echo "Waiting for API... ($i/60)"
               sleep 2
             done
-            
+
             # Проверяем и инициализируем админа
             echo "Checking admin user..."
             docker compose exec -T backend node dist/scripts/checkAdmin.js || docker compose exec -T backend node dist/scripts/createAdmin.js
-            
+
             # Очистка старых образов
             docker system prune -f
-            
+
             # Удаляем старые бэкапы (оставляем последние 5)
-            cd db_backups && ls -t | tail -n +6 | xargs -r rm --
-            
-            # Настройка SSL, если новый запуск
-            cd /root/krovli38
-            
-            # Сначала обновляем конфигурацию nginx для поддержки health check через HTTP
-            cat > nginx/conf.d/default.conf <<'NGINX_CONF'
-            upstream frontend {
-                server frontend:80;
-            }
-
-            upstream admin-panel {
-                server admin-panel:80;
-            }
-
-            upstream backend {
-                server backend:3000;
-            }
-
-            server {
-                listen 80;
-                server_name krovlya38.pro www.krovlya38.pro;
-                server_tokens off;
-
-                location /.well-known/acme-challenge/ {
-                    root /var/www/certbot;
-                }
-
-                # Всегда разрешаем HTTP для health check
-                location /api/health {
-                    proxy_pass http://backend;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                # Проверяем наличие SSL сертификатов
-                # Если сертификаты отсутствуют, временно разрешаем HTTP для всех запросов
-                # для обеспечения работы API во время получения сертификатов
-                if (!-f /etc/letsencrypt/live/krovlya38.pro/fullchain.pem) {
-                    location / {
-                        # Для frontend
-                        proxy_pass http://frontend;
-                        proxy_set_header Host $host;
-                        proxy_set_header X-Real-IP $remote_addr;
-                        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                        proxy_set_header X-Forwarded-Proto $scheme;
-                    }
-                    
-                    location /admin {
-                        proxy_pass http://admin-panel;
-                        proxy_set_header Host $host;
-                        proxy_set_header X-Real-IP $remote_addr;
-                        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                        proxy_set_header X-Forwarded-Proto $scheme;
-                    }
-                    
-                    location /api {
-                        proxy_pass http://backend;
-                        proxy_set_header Host $host;
-                        proxy_set_header X-Real-IP $remote_addr;
-                        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                        proxy_set_header X-Forwarded-Proto $scheme;
-                    }
-                    
-                    location /uploads {
-                        proxy_pass http://backend;
-                        proxy_set_header Host $host;
-                        proxy_set_header X-Real-IP $remote_addr;
-                        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                        proxy_set_header X-Forwarded-Proto $scheme;
-                    }
-                }
-                
-                # Если сертификаты есть, используем редирект на HTTPS
-                if (-f /etc/letsencrypt/live/krovlya38.pro/fullchain.pem) {
-                    location / {
-                        return 301 https://$host$request_uri;
-                    }
-                }
-            }
-
-            # Настройка HTTPS сервера
-            server {
-                listen 443 ssl;
-                server_name krovlya38.pro www.krovlya38.pro;
-                server_tokens off;
-
-                ssl_certificate /etc/letsencrypt/live/krovlya38.pro/fullchain.pem;
-                ssl_certificate_key /etc/letsencrypt/live/krovlya38.pro/privkey.pem;
-                include /etc/letsencrypt/options-ssl-nginx.conf;
-                ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
-
-                location / {
-                    proxy_pass http://frontend;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                location /admin {
-                    proxy_pass http://admin-panel;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                location /api {
-                    proxy_pass http://backend;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                location /uploads {
-                    proxy_pass http://backend;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                # Увеличиваем размер загружаемых файлов
-                client_max_body_size 10M;
-
-                # Security headers с разрешением для Cloudinary
-                add_header X-Frame-Options "SAMEORIGIN" always;
-                add_header X-XSS-Protection "1; mode=block" always;
-                add_header X-Content-Type-Options "nosniff" always;
-                add_header Referrer-Policy "no-referrer-when-downgrade" always;
-                add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline' 'unsafe-eval'; connect-src 'self' *.cloudinary.com api.cloudinary.com; img-src 'self' data: blob: *.cloudinary.com res.cloudinary.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.cloudinary.com; frame-src 'self' *.cloudinary.com data: blob:;" always;
-            }
-            NGINX_CONF
-            
-            # Запускаем контейнеры с новой конфигурацией
-            docker compose up -d
-            
-            # Проверяем, доступен ли health check (должен быть доступен сразу)
-            echo "Checking health check immediately..."
-            if curl -s http://localhost/api/health > /dev/null; then
-              echo "Health check is responding!"
-            else
-              echo "Health check is not responding, checking container logs..."
-              docker compose logs nginx
-              docker compose logs backend
-            fi
-            
-            # Проверяем SSL сертификаты
-            if [ ! -d "certbot/conf/live/krovlya38.pro" ]; then
-              echo "Setting up SSL for the first time..."
-              chmod +x init-letsencrypt.sh
-              ./init-letsencrypt.sh
-              
-              # После получения сертификатов перезагружаем nginx
-              docker compose exec nginx nginx -s reload
-            else
-              echo "SSL certificates exist, checking renewal..."
-              # Проверяем, нужно ли обновить сертификаты
-              docker compose run --rm certbot certbot renew --dry-run
-              if [ $? -eq 0 ]; then
-                echo "Certificates are up to date"
-              else
-                echo "Certificates need renewal"
-                docker compose run --rm certbot certbot renew
-                docker compose exec nginx nginx -s reload
-              fi
-            fi
-            
-            # Проверяем срок действия сертификатов
-            if [ -f "certbot/conf/live/krovlya38.pro/cert.pem" ]; then
-              EXPIRY=$(openssl x509 -enddate -noout -in certbot/conf/live/krovlya38.pro/cert.pem | cut -d= -f2)
-              EXPIRY_TS=$(date -d "$EXPIRY" +%s)
-              NOW_TS=$(date +%s)
-              DAYS_LEFT=$(( ($EXPIRY_TS - $NOW_TS) / 86400 ))
-              echo "SSL certificate expires in $DAYS_LEFT days"
-              
-              if [ $DAYS_LEFT -lt 30 ]; then
-                echo "Certificate expires soon, forcing renewal"
-                docker compose run --rm certbot certbot renew --force-renewal
-                docker compose exec nginx nginx -s reload
-              fi
-            fi 
+            cd /root/krovli38/db_backups && ls -t | tail -n +6 | xargs -r rm -- 
